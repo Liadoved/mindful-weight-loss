@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הרזיה מודעת - מסע לשינוי אמיתי</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="home-page">
+    {% include 'navbar.html' %}
+
+    <header class="hero">
+        <div class="hero-content">
+            <h1>גלי את הדרך להרזיה מודעת ובריאה</h1>
+            <p class="hero-subtitle">מסע מעצים לשינוי אמיתי ולאורח חיים בריא</p>
+            <div class="hero-cta">
+                <a href="#about" class="primary-button">
+                    <i class="fas fa-play"></i>
+                    התחילי עכשיו
+                </a>
+            </div>
+        </div>
+        <div class="hero-image">
+            <img src="{{ url_for('static', filename='images/hero-image.jpg') }}" alt="הרזיה מודעת">
+        </div>
+    </header>
+
+    <section id="about" class="about-section">
+        <div class="container">
+            <h2 class="section-title">קורס המבוא שלנו</h2>
+            <p class="section-subtitle">הצעד הראשון שלך לשינוי אמיתי</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <h3>6 שיעורי וידאו</h3>
+                    <p>תכנים מקצועיים ומעמיקים שיובילו אותך צעד אחר צעד</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3>גישה הוליסטית</h3>
+                    <p>שילוב ייחודי של גוף ונפש לשינוי מתמשך</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <h3>כלים פרקטיים</h3>
+                    <p>טכניקות מעשיות שתוכלי ליישם כבר מהיום</p>
+                </div>
+            </div>
+            <div class="about-cta">
+                <a href="{{ url_for('register') }}" class="primary-button">הרשמה לקורס המבוא</a>
+                <p class="price-tag">קורס המבוא: חינם!</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="testimonials-section">
+        <div class="container">
+            <h2 class="section-title">מה אומרות המשתתפות</h2>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <i class="fas fa-quote-right"></i>
+                        <p>"הקורס פתח לי את העיניים להבין את הקשר בין הרגשות שלי לאכילה. ממליצה בחום!"</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <img src="{{ url_for('static', filename='images/testimonial1.jpg') }}" alt="תמונת ממליצה">
+                        <div class="author-info">
+                            <h4>מיכל כהן</h4>
+                            <p>משתתפת בקורס</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-content">
+                        <i class="fas fa-quote-right"></i>
+                        <p>"בזכות הכלים שקיבלתי בקורס, אני מצליחה להתמודד עם אכילה רגשית בצורה הרבה יותר טובה."</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <img src="{{ url_for('static', filename='images/testimonial2.jpg') }}" alt="תמונת ממליצה">
+                        <div class="author-info">
+                            <h4>שירה לוי</h4>
+                            <p>משתתפת בקורס</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <div class="container">
+            <h2>מוכנה להתחיל את המסע שלך?</h2>
+            <p>הצטרפי לאלפי נשים שכבר חוו שינוי אמיתי</p>
+            <div class="cta-buttons">
+                <a href="{{ url_for('register') }}" class="primary-button">הרשמה לקורס המבוא</a>
+            </div>
+        </div>
+    </section>
+
+    {% include 'footer.html' %}
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

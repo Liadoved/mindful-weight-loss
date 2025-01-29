@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>התחברות</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>התחברות</h2>
+        <form method="POST">
+            <div>
+                <label for="username">שם משתמש:</label>
+                <input type="text" name="username" required>
+            </div>
+            <div>
+                <label for="password">סיסמה:</label>
+                <input type="password" name="password" required>
+            </div>
+            <button type="submit" class="cta-button">התחבר</button>
+        </form>
+        <p><a href="{{ url_for('register') }}">אין לך חשבון? הירשם כאן</a></p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>קורס מבוא - רזית</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        .fa-unlock {
+            color: #8a5dc7;
+            opacity: 0.7;
+        }
+        
+        .course-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .reset-button {
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .reset-button:hover {
+            background-color: #cc0000;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* הוספת סגנונות למנעול */
+        .lock-icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+            color: #888;
+        }
+
+        .locked .lock-icon {
+            color: #ff6b6b;
+        }
+
+        .unlocked .lock-icon {
+            color: #51cf66;
+        }
+
+        /* הסרת הוי הירוק */
+        .accordion-button::after {
+            display: none !important;
+        }
+
+        /* עיצוב ללשונית נעולה */
+        .locked .accordion-button {
+            cursor: not-allowed;
+            opacity: 0.7;
+            background-color: #f8f9fa;
+        }
+
+        .locked .accordion-button:not(.collapsed) {
+            background-color: #f8f9fa;
+            color: #888;
+        }
+
+        .locked .accordion-collapse {
+            display: none;
+        }
+
+        /* כפתור "סמן כהושלם" */
+        .mark-complete-btn {
+            margin-top: 15px;
+            margin-bottom: 15px;
+            padding: 8px 20px;
+            background-color: #8a5dc7;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mark-complete-btn:hover {
+            background-color: #7340b5;
+            transform: translateY(-2px);
+        }
+
+        .mark-complete-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* הסגנונות הקיימים נשארים */
+        
+        /* הוספת סגנונות למנעול */
+        .chapter-status i.fa-lock {
+            color: #ff6b6b;
+        }
+        
+        .chapter-status i.fa-unlock {
+            color: #51cf66;
+        }
+        
+        /* הסתרת תוכן של פרק נעול */
+        .chapter.locked .chapter-content {
+            display: none !important;
+        }
+        
+        /* עיצוב לפרק נעול */
+        .chapter.locked .chapter-header {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        /* סגנונות למודל */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            overflow: auto;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+            position: relative;
+            text-align: center;
+        }
+
+        .close {
+            position: absolute;
+            right: 10px;
+            top: 5px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #8a5dc7;
+        }
+
+        .special-price {
+            margin: 20px 0;
+        }
+
+        .price {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        .original {
+            text-decoration: line-through;
+            color: #999;
+            margin-right: 10px;
+        }
+
+        .discount {
+            color: #8a5dc7;
+            font-weight: bold;
+        }
+
+        .offer-note {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .whatsapp-button {
+            display: inline-block;
+            background-color: #25d366;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .whatsapp-button:hover {
+            background-color: #128c7e;
+            transform: translateY(-2px);
+        }
+
+        /* סגנונות לכפתור ההטבה */
+        .button-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .floating-button {
+            background-color: #8a5dc7;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .floating-button:hover {
+            background-color: #7340b5;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        .floating-button i {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body class="course-page">
+    {% include 'navbar.html' %}
+
+    <div class="course-container">
+        <div class="course-header">
+            <h1>קורס מבוא - רזית</h1>
+            <button id="resetProgressBtn" class="reset-button">איפוס התקדמות</button>
+        </div>
+        <p class="course-description">
+                ברוכים הבאים לקורס המבוא שלנו! כאן תלמדו את היסודות של ירידה במשקל מודעת.
+                הקורס מחולק לפרקים, וכל פרק נפתח לאחר השלמת הפרק הקודם.
+            </p>
+
+        <div class="course-progress">
+            <div class="progress-bar">
+                <div class="progress-bar-fill" style="width: {{ progress }}%"></div>
+            </div>
+            <span class="progress-text">{{ progress }}% הושלמו</span>
+        </div>
+
+        <!-- Floating Button -->
+        <div class="button-container">
+            <button id="specialOfferBtn" class="floating-button" onclick="showCompletionModal()">
+                <i class="fas fa-gift"></i>
+                הטבה מיוחדת עבורך
+            </button>
+        </div>
+
+        <div class="chapters-container">
+            {% set chapters = [
+                {
+                    'number': 1,
+                    'word': 'ראשון',
+                    'title': 'רזית - איך הכל התחיל?',
+                    'video_id': '1Ypg5gYYEIJF1AwL5rdcp9K-Lk2yedB2M'
+                },
+                {
+                    'number': 2,
+                    'word': 'שני',
+                    'title': 'תת מודע ומודע - התניות בגיל צעיר',
+                    'video_id': '1sOINVSYADXhmOARqsMKSxPipM_zUXleS'
+                },
+                {
+                    'number': 3,
+                    'word': 'שלישי',
+                    'title': 'מה הכוונה החיובית של ההשמנה שלך?',
+                    'video_id': '1YmMb5VxT8RYorTcu8P5iMOcPnzbt2G6b'
+                },
+                {
+                    'number': 4,
+                    'word': 'רביעי',
+                    'title': 'טריגרים - למה אני תקועה במעגל ההשמנה?',
+                    'video_id': '1L5CE385L1fChWyoGCkdDd-ZmFWJnvDLI'
+                },
+                {
+                    'number': 5,
+                    'word': 'ביניים',
+                    'title': 'שאלון - איזו סוג אכלנית את?',
+                    'special': 'quiz'
+                },
+                {
+                    'number': 6,
+                    'word': 'חמישי',
+                    'title': 'הסבר - איזו סוג אכלנית את?',
+                    'video_id': '1o-eUykMqpMZYH1TbIiJLA07Bimw_nKxR'
+                },
+                {
+                    'number': 7,
+                    'word': 'שישי',
+                    'title': 'עקרונות הסדנה של רזית',
+                    'video_id': ''
+                }
+            ] %}
+
+            {% for chapter in chapters %}
+            {% set prev_chapter = (chapter.number|int - 1)|string %}
+            {% set should_unlock = chapter.number == 1 or chapter.number|string in completed_videos or prev_chapter in completed_videos %}
+            <div class="chapter {% if not should_unlock %}locked{% endif %}" data-chapter="{{ chapter.number }}" data-prev-chapter="{{ prev_chapter }}">
+                <div class="chapter-header" onclick="toggleChapter('{{ chapter.number }}')">
+                    <div class="chapter-title">
+                        <span class="chapter-status">
+                            {% if chapter.number|string in completed_videos %}
+                                <i class="fas fa-check-circle completed"></i>
+                            {% elif should_unlock %}
+                                <i class="fas fa-unlock unlocked"></i>
+                            {% else %}
+                                <i class="fas fa-lock locked"></i>
+                            {% endif %}
+                        </span>
+                        <h2>{% if chapter.word %}פרק {{ chapter.word }}{% endif %}: {{ chapter.title }}</h2>
+                    </div>
+                    <div class="chapter-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                </div>
+                <div class="chapter-content {% if chapter.number == 1 %}active{% endif %}">
+                    {% if chapter.special == 'quiz' %}
+                        <div class="quiz-content">
+                            <p>הגיע הזמן לבדוק את ההתקדמות שלך!</p>
+                            <a href="/quiz" class="btn btn-primary quiz-button">התחילי את השאלון</a>
+                            <button class="btn btn-success complete-button" data-video="{{ chapter.number }}" onclick="markAsComplete('{{ chapter.number }}')"
+                                    {% if chapter.number|string in completed_videos %}disabled{% endif %}>
+                                {% if chapter.number|string in completed_videos %}
+                                    <i class="fas fa-check"></i> הושלם
+                                {% else %}
+                                    <i class="fas fa-check"></i> סמני כהושלם
+                                {% endif %}
+                            </button>
+                        </div>
+                    {% else %}
+                        <div class="video-wrapper">
+                            <iframe src="https://drive.google.com/file/d/{{ chapter.video_id }}/preview" 
+                                    allow="autoplay" allowfullscreen></iframe>
+                        </div>
+                        <button class="btn btn-success complete-button {% if chapter.number|string in completed_videos %}completed{% endif %}" 
+                                data-video="{{ chapter.number }}" 
+                                onclick="markAsComplete('{{ chapter.number }}')"
+                                {% if chapter.number|string in completed_videos %}disabled{% endif %}>
+                            {% if chapter.number|string in completed_videos %}
+                                <i class="fas fa-check"></i> הושלם
+                            {% else %}
+                                <i class="fas fa-check"></i> סמני כהושלם
+                            {% endif %}
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Completion Modal -->
+    <div id="completionModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="modal-header">
+                <h2>כל הכבוד! 🎉</h2>
+                <p>סיימת את קורס המבוא!</p>
+            </div>
+            <div class="modal-body">
+                <div class="special-price">
+                    <h3>מחיר מיוחד לבוגרות קורס המבוא</h3>
+                    <div class="price">
+                        <span class="original">₪2,400</span>
+                        <span class="discount">₪1,800</span>
+                    </div>
+                    <p class="offer-note">* המחיר המיוחד בתוקף ל-24 שעות בלבד</p>
+                </div>
+                <a href="https://wa.me/+972523303050?text=היי, סיימתי את קורס המבוא ואשמח להצטרף לסדנה במחיר המיוחד" class="whatsapp-button">
+                    <i class="fab fa-whatsapp"></i>
+                    אני רוצה להצטרף במחיר המיוחד
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% include 'footer.html' %}
+
+    <script>
+        function updateProgressUI(progress) {
+            console.log('Updating progress UI:', progress);
+            const progressBar = document.querySelector('.progress-bar-fill');
+            const progressText = document.querySelector('.progress-text');
+            const specialOfferBtn = document.getElementById('specialOfferBtn');
+            const modal = document.getElementById('completionModal');
+            
+            console.log('Elements:', {
+                progressBar: progressBar,
+                progressText: progressText,
+                specialOfferBtn: specialOfferBtn,
+                modal: modal
+            });
+            
+            if (progressBar && progressText) {
+                progressBar.style.width = progress + '%';
+                progressText.textContent = progress + '% הושלמו';
+                
+                // בדיקה אם הקורס הושלם
+                console.log('Checking if course completed:', progress === 100);
+                if (progress === 100) {
+                    console.log('Course completed! Showing special offer and modal');
+                    // הצגת כפתור ההטבה המיוחדת
+                    if (specialOfferBtn) {
+                        specialOfferBtn.style.display = 'block';
+                        console.log('Special offer button displayed');
+                    }
+                    // הפעלת אנימציית הקונפטי
+                    startConfetti();
+                    // הצגת מודל הסיום
+                    if (modal) {
+                        modal.style.display = 'block';
+                        console.log('Modal displayed');
+                    }
+                } else {
+                    if (specialOfferBtn) {
+                        specialOfferBtn.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        function showCompletionModal() {
+            console.log('Showing completion modal');
+            const modal = document.getElementById('completionModal');
+            if (modal) {
+                modal.style.display = 'block';
+                console.log('Modal displayed');
+                startConfetti();
+            } else {
+                console.error('Modal element not found');
+            }
+        }
+
+        function toggleChapter(chapterNumber) {
+            console.log('Toggling chapter:', chapterNumber);
+            const chapter = document.querySelector(`[data-chapter="${chapterNumber}"]`);
+            if (!chapter) {
+                console.error('Chapter not found:', chapterNumber);
+                return;
+            }
+            
+            // בדיקה אם הפרק נעול
+            if (chapter.classList.contains('locked')) {
+                console.log('Chapter is locked:', chapterNumber);
+                return;
+            }
+            
+            const content = chapter.querySelector('.chapter-content');
+            const toggle = chapter.querySelector('.chapter-toggle i');
+            
+            // סגירת כל הפרקים האחרים
+            document.querySelectorAll('.chapter-content').forEach(content => {
+                if (content !== chapter.querySelector('.chapter-content')) {
+                    content.classList.remove('active');
+                    const otherToggle = content.parentElement.querySelector('.chapter-toggle i');
+                    if (otherToggle) {
+                        otherToggle.style.transform = 'rotate(0deg)';
+                    }
+                }
+            });
+            
+            content.classList.toggle('active');
+            if (content.classList.contains('active')) {
+                toggle.style.transform = 'rotate(180deg)';
+            } else {
+                toggle.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function markAsComplete(videoId) {
+            console.log('Marking as complete:', videoId);
+            let button;
+            button = document.querySelector(`.complete-button[data-video="${videoId}"]`);
+            
+            if (!button) {
+                console.error('Button not found for video:', videoId);
+                return;
+            }
+            
+            // שליחת בקשה לסימון כהושלם
+            fetch(`/mark_complete/${videoId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Successfully marked as complete');
+                    // עדכון כפתור ההשלמה
+                    button.innerHTML = '<i class="fas fa-check"></i> הושלם';
+                    button.disabled = true;
+                    button.classList.add('completed');
+                    
+                    // עדכון האייקון של הפרק
+                    const chapterStatus = button.closest('.chapter').querySelector('.chapter-status i');
+                    if (chapterStatus) {
+                        chapterStatus.className = 'fas fa-check-circle completed';
+                    }
+                    
+                    // פתיחת הפרק הבא
+                    const nextChapter = document.querySelector(`[data-chapter="${parseInt(videoId) + 1}"]`);
+                    if (nextChapter) {
+                        nextChapter.classList.remove('locked');
+                        const nextChapterStatus = nextChapter.querySelector('.chapter-status i');
+                        if (nextChapterStatus) {
+                            nextChapterStatus.className = 'fas fa-unlock unlocked';
+                        }
+                    }
+                    
+                    // עדכון סרגל ההתקדמות
+                    updateProgressUI(data.progress);
+                } else {
+                    console.error('Failed to mark as complete:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        // פונקציה לבדיקת מצב הפרקים בטעינת הדף
+        function checkChaptersStatus() {
+            console.log('Checking chapters status...');
+            const chapters = document.querySelectorAll('.chapter');
+            const completedVideos = [];
+            
+            chapters.forEach(chapter => {
+                const button = chapter.querySelector('.complete-button');
+                if (button && button.disabled) {
+                    completedVideos.push(chapter.getAttribute('data-chapter'));
+                }
+            });
+            
+            console.log('Completed videos:', completedVideos);
+            
+            // עדכון מצב הפרקים
+            chapters.forEach(chapter => {
+                const chapterNum = chapter.getAttribute('data-chapter');
+                const prevChapter = chapter.getAttribute('data-prev-chapter');
+                const shouldUnlock = 
+                    chapterNum === '1' || 
+                    completedVideos.includes(chapterNum) || 
+                    completedVideos.includes(prevChapter);
+                
+                console.log(`Chapter ${chapterNum}:`, {
+                    prevChapter,
+                    shouldUnlock,
+                    isCompleted: completedVideos.includes(chapterNum)
+                });
+                
+                if (shouldUnlock) {
+                    chapter.classList.remove('locked');
+                    const statusIcon = chapter.querySelector('.chapter-status i');
+                    if (completedVideos.includes(chapterNum)) {
+                        statusIcon.className = 'fas fa-check-circle completed';
+                    } else {
+                        statusIcon.className = 'fas fa-unlock unlocked';
+                    }
+                } else {
+                    chapter.classList.add('locked');
+                    const statusIcon = chapter.querySelector('.chapter-status i');
+                    statusIcon.className = 'fas fa-lock locked';
+                }
+            });
+        }
+
+        // בדיקת מצב הפרקים בטעינת הדף
+        document.addEventListener('DOMContentLoaded', checkChaptersStatus);
+        
+        document.getElementById('resetProgressBtn').addEventListener('click', function() {
+            if (confirm('האם את בטוחה שאת רוצה לאפס את כל ההתקדמות שלך?')) {
+                fetch('/reset_progress', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('ההתקדמות אופסה בהצלחה!');
+                        location.reload();
+                    } else {
+                        alert('אירעה שגיאה באיפוס ההתקדמות. אנא נסי שוב.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('אירעה שגיאה באיפוס ההתקדמות. אנא נסי שוב.');
+                });
+            }
+        });
+
+        function closeModal() {
+            const modal = document.getElementById('completionModal');
+            if (modal) {
+                modal.style.display = 'none';
+                stopConfetti();
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('completionModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        function openQuiz() {
+            window.location.href = '/quiz';
+        }
+
+        function startConfetti() {
+            const count = 200;
+            const defaults = {
+                origin: { y: 0 },
+                spread: 90,
+                startVelocity: 30,
+                ticks: 400,
+                zIndex: 0,
+                shapes: ['square', 'circle'],
+                colors: ['#6c63ff', '#8278ff', '#9795f0', '#a5a1ff', '#b4b0ff']
+            };
+
+            function fire(particleRatio, opts) {
+                confetti(Object.assign({}, defaults, opts, {
+                    particleCount: Math.floor(count * particleRatio)
+                }));
+            }
+
+            fire(0.25, {
+                spread: 26,
+                startVelocity: 55,
+            });
+
+            fire(0.2, {
+                spread: 60,
+            });
+
+            fire(0.35, {
+                spread: 100,
+                decay: 0.91,
+                scalar: 0.8
+            });
+
+            fire(0.1, {
+                spread: 120,
+                startVelocity: 25,
+                decay: 0.92,
+                scalar: 1.2
+            });
+
+            fire(0.1, {
+                spread: 120,
+                startVelocity: 45,
+            });
+        }
+
+        function stopConfetti() {
+            confetti.reset();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<nav class="navbar">
+    <div class="navbar-container">
+        <a href="{{ url_for('index') }}" class="navbar-brand">
+            <i class="fas fa-seedling"></i>
+            ירידה במשקל מודעת
+        </a>
+        
+        <button class="navbar-toggle" onclick="toggleMenu()">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <div class="navbar-links">
+            <a href="{{ url_for('about_course') }}" class="nav-link {% if request.endpoint == 'about_course' %}active{% endif %}">
+                <i class="fas fa-info-circle"></i>
+                הסדנה של רזית
+            </a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('course') }}" class="nav-link {% if request.endpoint == 'course' %}active{% endif %}">
+                    <i class="fas fa-book"></i>
+                    קורס מבוא
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-button">
+                    <i class="fas fa-sign-out-alt"></i>
+                    התנתקות
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="nav-button">
+                    <i class="fas fa-sign-in-alt"></i>
+                    התחברות
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<script>
+function toggleMenu() {
+    const navLinks = document.querySelector('.navbar-links');
+    navLinks.classList.toggle('active');
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    const navLinks = document.querySelector('.navbar-links');
+    const navToggle = document.querySelector('.navbar-toggle');
+    
+    if (!event.target.closest('.navbar-links') && 
+        !event.target.closest('.navbar-toggle') && 
+        navLinks.classList.contains('active')) {
+        navLinks.classList.remove('active');
+    }
+});
+</script>
