@@ -649,26 +649,76 @@ def reset_progress():
 @login_required
 def quiz():
     if request.method == 'POST':
-        answers = request.form.to_dict()
-        current_user.save_quiz_answers(answers)  # שמירת התשובות
-        
-        # חישוב התוצאה
-        emotional_score = int(answers.get('q2', 0)) + int(answers.get('q4', 0)) + int(answers.get('q6', 0))
-        compulsive_score = int(answers.get('q1', 0)) + int(answers.get('q3', 0)) + int(answers.get('q5', 0))
-        
-        if emotional_score > compulsive_score:
-            current_user.difficulty = 2  # רגשית
-        elif compulsive_score > emotional_score:
-            current_user.difficulty = 3  # כפייתית
-        else:
-            current_user.difficulty = 1  # מאוזנת
+        try:
+            app.logger.info("קבלת תשובות שאלון")
+            answers = request.form.to_dict()
+            app.logger.info(f"תשובות שהתקבלו: {answers}")
             
-        db.session.commit()
-        return redirect(url_for('quiz_results'))
-        
+            current_user.save_quiz_answers(answers)
+            app.logger.info("תשובות נשמרו בהצלחה")
+            
+            # חישוב התוצאה
+            emotional_score = sum(int(answers.get(f'q{i}', 0)) for i in [2, 4, 6])
+            compulsive_score = sum(int(answers.get(f'q{i}', 0)) for i in [1, 3, 5])
+            
+            app.logger.info(f"ציון רגשי: {emotional_score}, ציון כפייתי: {compulsive_score}")
+            
+            if emotional_score > compulsive_score:
+                current_user.difficulty = 2  # רגשית
+            elif compulsive_score > emotional_score:
+                current_user.difficulty = 3  # כפייתית
+            else:
+                current_user.difficulty = 1  # מאוזנת
+                
+            db.session.commit()
+            app.logger.info(f"סוג אכילה נקבע: {current_user.difficulty}")
+            
+            return redirect(url_for('quiz_results'))
+            
+        except Exception as e:
+            app.logger.error(f"שגיאה בשמירת תשובות השאלון: {str(e)}")
+            db.session.rollback()
+            flash('אירעה שגיאה בשמירת התשובות. אנא נסי שוב.', 'error')
+            return redirect(url_for('quiz'))
+    
     # אם יש תשובות קודמות, נציג אותן
     saved_answers = current_user.get_quiz_answers()
     return render_template('quiz.html', saved_answers=saved_answers)
+
+@app.route('/submit_quiz', methods=['POST'])
+@login_required
+def submit_quiz():
+    try:
+        data = request.get_json()
+        app.logger.info(f"קבלת נתוני שאלון: {data}")
+        
+        if not data:
+            return jsonify({'error': 'לא התקבלו נתונים'}), 400
+            
+        # שמירת התשובות
+        current_user.save_quiz_answers(data)
+        
+        # חישוב סוג האכילה
+        scores = {
+            'emotional': sum(int(data.get(f'q{i}', 0)) for i in [2, 4, 6]),
+            'compulsive': sum(int(data.get(f'q{i}', 0)) for i in [1, 3, 5])
+        }
+        
+        if scores['emotional'] > scores['compulsive']:
+            current_user.difficulty = 2
+        elif scores['compulsive'] > scores['emotional']:
+            current_user.difficulty = 3
+        else:
+            current_user.difficulty = 1
+            
+        db.session.commit()
+        app.logger.info(f"שאלון נשמר בהצלחה. סוג אכילה: {current_user.difficulty}")
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        app.logger.error(f"שגיאה בשמירת השאלון: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/quiz_results')
 @login_required
