@@ -13,6 +13,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import string
 import random
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -206,8 +207,6 @@ def register():
             # משתמשים במספר הטלפון כסיסמה
             password = phone
             
-            registration_date = db.func.current_timestamp()
-            
             # יצירת משתמש חדש
             new_user = User(
                 username=email,  # משתמשים באימייל בתור שם משתמש
@@ -221,7 +220,7 @@ def register():
                 address=address or None,
                 difficulty=int(difficulty),
                 comments=comments or None,
-                registration_date=registration_date
+                registration_date=datetime.now()  # שימוש ב-datetime במקום current_timestamp
             )
             
             db.session.add(new_user)
@@ -238,7 +237,7 @@ def register():
                 'address': address,
                 'difficulty': difficulty,
                 'comments': comments,
-                'registration_date': registration_date
+                'registration_date': new_user.registration_date  # שימוש באובייקט שכבר נשמר
             }
             
             # שליחת מייל למשתמש
@@ -268,28 +267,30 @@ def login():
         return redirect(url_for('index'))
     
     if request.method == 'POST':
-        # בדיקה אם המשתמש התחבר עם שם משתמש או אימייל
-        login_id = request.form.get('email')  # נשאיר את השם 'email' בטופס כדי לא לשבור את הממשק
-        user = User.query.filter(
-            (User.username == login_id) | (User.email == login_id)
-        ).first()
+        username = request.form.get('username')  # שינוי השם מ-email ל-username
+        password = request.form.get('password')
         
-        if user is None or not user.check_password(request.form.get('password')):
-            flash('שם משתמש או סיסמה לא נכונים', 'error')
+        if not username or not password:
+            flash('אנא מלא את כל השדות')
             return render_template('login.html')
         
-        # עדכון זמן הכניסה האחרון
-        user.last_login = db.func.current_timestamp()
-        db.session.commit()
+        # מנסה למצוא משתמש לפי אימייל או שם משתמש
+        user = User.query.filter(
+            db.or_(User.email == username, User.username == username)
+        ).first()
         
-        login_user(user)
-        
-        # אם יש הפניה לדף מסוים אחרי הלוגין
-        next_page = request.args.get('next')
-        if next_page:
-            return redirect(next_page)
-        return redirect(url_for('index'))
-        
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            
+            # עדכון זמן התחברות אחרון
+            user.last_login = db.func.current_timestamp()
+            db.session.commit()
+            
+            return redirect(url_for('course'))
+        else:
+            flash('שם משתמש או סיסמה שגויים')
+            return render_template('login.html')
+    
     return render_template('login.html')
 
 @app.route('/logout')
