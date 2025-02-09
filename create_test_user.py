@@ -1,4 +1,5 @@
 from app import app, db, User
+from werkzeug.security import generate_password_hash
 
 # Create the database tables
 with app.app_context():
@@ -8,6 +9,7 @@ with app.app_context():
     test_user = User(
         username="test@example.com",
         email="test@example.com",
+        password_hash=generate_password_hash("password123"),
         full_name="משתמש לדוגמה",
         age=30,
         gender="male",
@@ -20,13 +22,8 @@ with app.app_context():
         completed_videos=""
     )
     
-    # Set password
-    test_user.set_password("test123")  # שינינו את הסיסמה למשהו פשוט יותר
-    
-    # Add user to database
+    # Add the user to the database
     db.session.add(test_user)
     db.session.commit()
     
     print("Test user created successfully!")
-    print("Username: test@example.com")
-    print("Password: test123")
