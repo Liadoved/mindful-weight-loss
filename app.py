@@ -267,23 +267,24 @@ def send_registration_email(email, username, password, user_data, is_admin=False
 
 oauth = OAuth(app)
 
-google = oauth.remote_app(
-    'google',
-    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
-    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    request_token_params={
-        'scope': 'email'
-    },
-    base_url='https://www.googleapis.com/oauth2/v1/',
-    request_token_url=None,
-    access_token_method='POST',
-    access_token_url='https://accounts.google.com/o/oauth2/token',
-    authorize_url='https://accounts.google.com/o/oauth2/auth',
-)
+if os.getenv('GOOGLE_CLIENT_ID') and os.getenv('GOOGLE_CLIENT_SECRET'):
+    google = oauth.remote_app(
+        'google',
+        consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
+        consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+        request_token_params={
+            'scope': 'email'
+        },
+        base_url='https://www.googleapis.com/oauth2/v1/',
+        request_token_url=None,
+        access_token_method='POST',
+        access_token_url='https://accounts.google.com/o/oauth2/token',
+        authorize_url='https://accounts.google.com/o/oauth2/auth',
+    )
 
-@google.tokengetter
-def get_google_oauth_token():
-    return session.get('google_token')
+    @google.tokengetter
+    def get_google_oauth_token():
+        return session.get('google_token')
 
 @app.route('/login/google')
 def google_login():
