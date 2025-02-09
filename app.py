@@ -418,6 +418,37 @@ def test_email():
         app.logger.error(f'Test email failed: {str(e)}')
         return f'Failed to send test email: {str(e)}'
 
+@app.route('/setup_database')
+def setup_database():
+    try:
+        # יצירת הטבלאות
+        db.drop_all()
+        db.create_all()
+        
+        # יצירת משתמש אדמין
+        admin_user = User(
+            username='admin',
+            email='admin@razit.co.il',
+            password_hash=generate_password_hash('Aa123456!'),
+            full_name='מנהל המערכת',
+            age=30,
+            gender='other',
+            address='',
+            city='',
+            phone='',
+            difficulty=0,
+            comments='משתמש אדמין',
+            is_admin=True
+        )
+        
+        # הוספת המשתמש לבסיס הנתונים
+        db.session.add(admin_user)
+        db.session.commit()
+        
+        return 'Database setup completed successfully!'
+    except Exception as e:
+        return f'Error setting up database: {str(e)}'
+
 @app.route('/admin')
 @login_required
 @requires_admin
