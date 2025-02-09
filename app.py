@@ -213,8 +213,13 @@ def login():
         return redirect(url_for('index'))
     
     if request.method == 'POST':
-        user = User.query.filter_by(username=request.form['email']).first()
-        if user is None or not user.check_password(request.form['password']):
+        # בדיקה אם המשתמש התחבר עם שם משתמש או אימייל
+        login_id = request.form.get('email')  # נשאיר את השם 'email' בטופס כדי לא לשבור את הממשק
+        user = User.query.filter(
+            (User.username == login_id) | (User.email == login_id)
+        ).first()
+        
+        if user is None or not user.check_password(request.form.get('password')):
             flash('שם משתמש או סיסמה לא נכונים', 'error')
             return render_template('login.html')
         
@@ -223,7 +228,13 @@ def login():
         db.session.commit()
         
         login_user(user)
+        
+        # אם יש הפניה לדף מסוים אחרי הלוגין
+        next_page = request.args.get('next')
+        if next_page:
+            return redirect(next_page)
         return redirect(url_for('index'))
+        
     return render_template('login.html')
 
 @app.route('/logout')

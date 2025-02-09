@@ -3,24 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>התחברות</title>
+    <title>התחברות - רזית</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .form-group label {
+            font-weight: 500;
+            color: #333;
+        }
+        .form-group input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .login-button {
+            background-color: #8a5dc7;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .login-button:hover {
+            background-color: #7346b3;
+        }
+        .flash-message {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            background-color: #ff6b6b;
+            color: white;
+        }
+        .help-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: 2px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h2>התחברות</h2>
-        <form method="POST">
-            <div>
-                <label for="username">שם משתמש:</label>
-                <input type="text" name="username" required>
+    {% include 'navbar.html' %}
+
+    <div class="login-container">
+        <h1>התחברות</h1>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <form method="POST" class="login-form">
+            <div class="form-group">
+                <label for="email">שם משתמש או אימייל</label>
+                <input type="text" id="email" name="email" required>
+                <span class="help-text">אפשר להתחבר עם שם משתמש או כתובת אימייל</span>
             </div>
-            <div>
-                <label for="password">סיסמה:</label>
-                <input type="password" name="password" required>
+            <div class="form-group">
+                <label for="password">סיסמה</label>
+                <input type="password" id="password" name="password" required>
             </div>
-            <button type="submit" class="cta-button">התחבר</button>
+            <button type="submit" class="login-button">התחברות</button>
         </form>
-        <p><a href="{{ url_for('register') }}">אין לך חשבון? הירשם כאן</a></p>
     </div>
 </body>
 </html>

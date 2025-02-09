@@ -1,30 +1,29 @@
 from app import app, db, User
 from werkzeug.security import generate_password_hash
 
-# Create the database tables
+# יצירת משתמש אדמין
+admin_user = User(
+    username='admin',
+    email='admin@razit.co.il',
+    password_hash=generate_password_hash('Aa123456!'),
+    full_name='מנהל המערכת',
+    age=30,
+    gender='other',
+    address='',
+    city='',
+    phone='',
+    difficulty=0,
+    comments='משתמש אדמין',
+    is_admin=True
+)
+
 with app.app_context():
-    db.create_all()
-    
-    # Create a test admin user
-    test_user = User(
-        username="test@example.com",
-        email="test@example.com",
-        password_hash=generate_password_hash("password123"),
-        full_name="משתמש לדוגמה",
-        age=30,
-        gender="male",
-        address="רחוב הרצל 1",
-        city="תל אביב",
-        phone="0501234567",
-        difficulty=3,
-        comments="משתמש לבדיקת המערכת",
-        progress=0,
-        completed_videos="",
-        is_admin=True  # Define the user as an admin
-    )
-    
-    # Add the user to the database
-    db.session.add(test_user)
-    db.session.commit()
-    
-    print("Test admin user created successfully!")
+    # בדיקה אם המשתמש כבר קיים
+    existing_admin = User.query.filter_by(username='admin').first()
+    if existing_admin is None:
+        # הוספת המשתמש לבסיס הנתונים
+        db.session.add(admin_user)
+        db.session.commit()
+        print("Admin user created successfully!")
+    else:
+        print("Admin user already exists!")
