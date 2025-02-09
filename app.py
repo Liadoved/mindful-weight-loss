@@ -77,6 +77,7 @@ class User(UserMixin, db.Model):
     completed_videos = db.Column(db.Text, default='')
     progress = db.Column(db.Integer, default=0)
     is_admin = db.Column(db.Boolean, default=False)
+    quiz_answers = db.Column(db.Text, default='{}')  # JSON string of quiz answers
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -668,10 +669,50 @@ def reset_progress():
         db.session.rollback()
         return jsonify({'success': False, 'message': 'An error occurred'})
 
-@app.route('/quiz')
+@app.route('/quiz', methods=['GET', 'POST'])
 @login_required
 def quiz():
-    return render_template('quiz.html')
+    if request.method == 'POST':
+        answers = request.form.to_dict()
+        
+        # שמירת התשובות במודל המשתמש
+        current_user.quiz_answers = json.dumps(answers)
+        
+        # חישוב התוצאה
+        score = calculate_quiz_score(answers)
+        current_user.difficulty = score
+        
+        db.session.commit()
+        
+        return redirect(url_for('quiz_results'))
+        
+    # אם יש תשובות שמורות, נטען אותן
+    saved_answers = {}
+    if current_user.quiz_answers:
+        try:
+            saved_answers = json.loads(current_user.quiz_answers)
+        except:
+            saved_answers = {}
+            
+    return render_template('quiz.html', saved_answers=saved_answers)
+
+@app.route('/quiz_results')
+@login_required
+def quiz_results():
+    if current_user.difficulty == 0:
+        return redirect(url_for('quiz'))
+        
+    saved_answers = {}
+    if current_user.quiz_answers:
+        try:
+            saved_answers = json.loads(current_user.quiz_answers)
+        except:
+            saved_answers = {}
+            
+    eating_type = current_user.get_eating_type()
+    return render_template('quiz_results.html', 
+                         eating_type=eating_type,
+                         saved_answers=saved_answers)
 
 @app.route('/submit_quiz', methods=['POST'])
 def submit_quiz():
@@ -711,10 +752,6 @@ def submit_quiz():
     
     session['quiz_result'] = eating_type
     return redirect(url_for('quiz_results'))
-
-@app.route('/quiz_results')
-def quiz_results():
-    return render_template('quiz_results.html')
 
 @app.route('/test-email')
 def test_email():

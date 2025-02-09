@@ -19,7 +19,7 @@
             </div>
         </div>
 
-        <form id="quizForm" onsubmit="return false;">
+        <form id="quizForm" method="POST" action="{{ url_for('quiz') }}">
             <div class="questions-page"></div>
             <div class="navigation-buttons">
                 <button type="button" id="prevButton" class="button">הקודם</button>
