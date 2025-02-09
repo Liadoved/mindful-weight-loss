@@ -1,179 +1,96 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="results-container">
-    <h1>תוצאות השאלון</h1>
-    
-    <div class="results-content">
-        <div class="score-explanation">
-            <p>הציונים נעים בין 6 ל-30 נקודות לכל סגנון אכילה.</p>
-            <p>ככל שהציון גבוה יותר, כך הנטייה לסגנון האכילה חזקה יותר.</p>
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-body text-center">
+            <h1 class="mb-4">תוצאות השאלון</h1>
+            
+            <div class="alert alert-info">
+                <h3>סוג האכילה שלך: {{ eating_type }}</h3>
+            </div>
+
+            <div class="mt-4">
+                <h4>התשובות שלך:</h4>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>שאלה</th>
+                                <th>תשובה</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>אני אוכלת בצורה אוטומטית מבלי לשים לב לכמויות</td>
+                                <td>
+                                    {% set value = answers.get('q1', '0') %}
+                                    {% if value == '1' %}לעיתים רחוקות
+                                    {% elif value == '2' %}לפעמים
+                                    {% elif value == '3' %}לעיתים קרובות
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>אני אוכלת כשאני מרגישה עצובה או מדוכאת</td>
+                                <td>
+                                    {% set value = answers.get('q2', '0') %}
+                                    {% if value == '1' %}לעיתים רחוקות
+                                    {% elif value == '2' %}לפעמים
+                                    {% elif value == '3' %}לעיתים קרובות
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>אני מרגישה שאני לא יכולה להפסיק לאכול ברגע שהתחלתי</td>
+                                <td>
+                                    {% set value = answers.get('q3', '0') %}
+                                    {% if value == '1' %}לעיתים רחוקות
+                                    {% elif value == '2' %}לפעמים
+                                    {% elif value == '3' %}לעיתים קרובות
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>אני אוכלת כשאני מרגישה לחוצה או חרדה</td>
+                                <td>
+                                    {% set value = answers.get('q4', '0') %}
+                                    {% if value == '1' %}לעיתים רחוקות
+                                    {% elif value == '2' %}לפעמים
+                                    {% elif value == '3' %}לעיתים קרובות
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>אני אוכלת כמויות גדולות של אוכל בזמן קצר</td>
+                                <td>
+                                    {% set value = answers.get('q5', '0') %}
+                                    {% if value == '1' %}לעיתים רחוקות
+                                    {% elif value == '2' %}לפעמים
+                                    {% elif value == '3' %}לעיתים קרובות
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>אני אוכלת כשאני מרגישה בודדה</td>
+                                <td>
+                                    {% set value = answers.get('q6', '0') %}
+                                    {% if value == '1' %}לעיתים רחוקות
+                                    {% elif value == '2' %}לפעמים
+                                    {% elif value == '3' %}לעיתים קרובות
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a href="{{ url_for('quiz') }}" class="btn btn-primary">חזרה לשאלון</a>
+                <a href="{{ url_for('course') }}" class="btn btn-success">המשך לקורס</a>
+            </div>
         </div>
-        <div id="resultsTable"></div>
-        <div id="primaryStyle" class="style-result"></div>
-        <div id="secondaryStyle" class="style-result"></div>
-    </div>
-
-    <div class="navigation-buttons">
-        <a href="/course" class="button next-button">המשך לקורס</a>
-        <a href="/quiz" class="button retry-button">חזור לשאלון</a>
-    </div>
-
-    <div class="text-center mt-4">
-        <p class="mb-4">פרק 5 נפתח עבורך! תוכלי להתחיל לצפות בו כשתחזרי לקורס.</p>
-        <a href="{{ url_for('course') }}" class="btn btn-primary">חזרה לקורס</a>
     </div>
 </div>
-
-<style>
-    .results-container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px;
-        text-align: center;
-    }
-
-    .results-content {
-        background-color: white;
-        padding: 30px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin: 20px 0;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 20px 0;
-        direction: rtl;
-    }
-
-    th, td {
-        padding: 15px;
-        text-align: right;
-        border: 1px solid #ddd;
-    }
-
-    th {
-        background-color: #f8f9fa;
-        font-weight: bold;
-    }
-
-    tr.highest-score {
-        background-color: #e8f5e9;
-    }
-
-    .style-result {
-        margin: 15px 0;
-        font-size: 1.2em;
-        text-align: center;
-    }
-
-    #primaryStyle {
-        color: #2196F3;
-        font-weight: bold;
-    }
-
-    #secondaryStyle {
-        color: #4CAF50;
-    }
-
-    .navigation-buttons {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-        margin-top: 30px;
-    }
-
-    .button {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 1em;
-        text-decoration: none;
-        transition: all 0.3s ease;
-    }
-
-    .next-button {
-        background-color: #4CAF50;
-        color: white;
-    }
-
-    .retry-button {
-        background-color: #2196F3;
-        color: white;
-    }
-
-    .button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
-    .next-button:hover {
-        background-color: #45a049;
-    }
-
-    .retry-button:hover {
-        background-color: #1976D2;
-    }
-</style>
-
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const savedResults = localStorage.getItem('quizResults');
-        if (!savedResults) {
-            window.location.href = '/quiz';
-            return;
-        }
-
-        const results = JSON.parse(savedResults);
-        const styles = {
-            'a': 'אכילה רגשית',
-            'b': 'אכילת יתר',
-            'c': 'אכילה חברתית',
-            'd': 'אכילה אובססיבית',
-            'e': 'אכילה לא מודעת',
-            'f': 'אכילה נוקשה'
-        };
-
-        // יצירת טבלת תוצאות
-        let tableHTML = `
-            <table>
-                <tr>
-                    <th>סגנון אכילה</th>
-                    <th>ציון (6-30)</th>
-                </tr>
-        `;
-
-        // מציאת הציון הגבוה ביותר
-        const maxScore = Math.max(...Object.values(results));
-
-        // יצירת שורות הטבלה
-        Object.entries(results).forEach(([type, score]) => {
-            const isHighest = score === maxScore;
-            tableHTML += `
-                <tr class="${isHighest ? 'highest-score' : ''}">
-                    <td>${styles[type]}</td>
-                    <td>${score}</td>
-                </tr>
-            `;
-        });
-        tableHTML += '</table>';
-        
-        document.getElementById('resultsTable').innerHTML = tableHTML;
-
-        // מציאת סגנון האכילה העיקרי והמשני
-        const sortedScores = Object.entries(results)
-            .sort((a, b) => b[1] - a[1]);
-
-        document.getElementById('primaryStyle').textContent = 
-            `סגנון האכילה העיקרי שלך הוא: ${styles[sortedScores[0][0]]} (${sortedScores[0][1]} נקודות)`;
-
-        if (sortedScores[1][1] >= sortedScores[0][1] - 2) {
-            document.getElementById('secondaryStyle').textContent = 
-                `יש לך גם נטייה משמעותית לסגנון: ${styles[sortedScores[1][0]]} (${sortedScores[1][1]} נקודות)`;
-        }
-    });
-</script>
 {% endblock %}

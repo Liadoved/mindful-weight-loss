@@ -74,10 +74,10 @@ class User(UserMixin, db.Model):
     registration_date = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime)
     difficulty = db.Column(db.Integer, default=0)  # 0=לא ענה, 1=מאוזנת, 2=רגשית, 3=כפייתית
+    quiz_answers = db.Column(db.JSON, default={})  # שמירת תשובות השאלון
     completed_videos = db.Column(db.Text, default='')
     progress = db.Column(db.Integer, default=0)
     is_admin = db.Column(db.Boolean, default=False)
-    quiz_answers = db.Column(db.Text, default='{}')  # JSON string of quiz answers
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -92,6 +92,15 @@ class User(UserMixin, db.Model):
             3: 'אכלנית כפייתית'
         }
         return types.get(self.difficulty, 'טרם סווג')
+
+    def save_quiz_answers(self, answers):
+        """שמירת תשובות השאלון"""
+        self.quiz_answers = answers
+        db.session.commit()
+
+    def get_quiz_answers(self):
+        """קבלת תשובות השאלון"""
+        return self.quiz_answers if self.quiz_answers else {}
 
     def get_completed_videos_count(self):
         if not self.completed_videos:
@@ -267,24 +276,23 @@ def send_registration_email(email, username, password, user_data, is_admin=False
 
 oauth = OAuth(app)
 
-if os.getenv('GOOGLE_CLIENT_ID') and os.getenv('GOOGLE_CLIENT_SECRET'):
-    google = oauth.remote_app(
-        'google',
-        consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
-        consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-        request_token_params={
-            'scope': 'email'
-        },
-        base_url='https://www.googleapis.com/oauth2/v1/',
-        request_token_url=None,
-        access_token_method='POST',
-        access_token_url='https://accounts.google.com/o/oauth2/token',
-        authorize_url='https://accounts.google.com/o/oauth2/auth',
-    )
+google = oauth.remote_app(
+    'google',
+    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
+    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    request_token_params={
+        'scope': 'email'
+    },
+    base_url='https://www.googleapis.com/oauth2/v1/',
+    request_token_url=None,
+    access_token_method='POST',
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+)
 
-    @google.tokengetter
-    def get_google_oauth_token():
-        return session.get('google_token')
+@google.tokengetter
+def get_google_oauth_token():
+    return session.get('google_token')
 
 @app.route('/login/google')
 def google_login():
@@ -675,26 +683,24 @@ def reset_progress():
 def quiz():
     if request.method == 'POST':
         answers = request.form.to_dict()
-        
-        # שמירת התשובות במודל המשתמש
-        current_user.quiz_answers = json.dumps(answers)
+        current_user.save_quiz_answers(answers)  # שמירת התשובות
         
         # חישוב התוצאה
-        score = calculate_quiz_score(answers)
-        current_user.difficulty = score
+        emotional_score = int(answers.get('q2', 0)) + int(answers.get('q4', 0)) + int(answers.get('q6', 0))
+        compulsive_score = int(answers.get('q1', 0)) + int(answers.get('q3', 0)) + int(answers.get('q5', 0))
         
+        if emotional_score > compulsive_score:
+            current_user.difficulty = 2  # רגשית
+        elif compulsive_score > emotional_score:
+            current_user.difficulty = 3  # כפייתית
+        else:
+            current_user.difficulty = 1  # מאוזנת
+            
         db.session.commit()
-        
         return redirect(url_for('quiz_results'))
         
-    # אם יש תשובות שמורות, נטען אותן
-    saved_answers = {}
-    if current_user.quiz_answers:
-        try:
-            saved_answers = json.loads(current_user.quiz_answers)
-        except:
-            saved_answers = {}
-            
+    # אם יש תשובות קודמות, נציג אותן
+    saved_answers = current_user.get_quiz_answers()
     return render_template('quiz.html', saved_answers=saved_answers)
 
 @app.route('/quiz_results')
@@ -702,57 +708,9 @@ def quiz():
 def quiz_results():
     if current_user.difficulty == 0:
         return redirect(url_for('quiz'))
-        
-    saved_answers = {}
-    if current_user.quiz_answers:
-        try:
-            saved_answers = json.loads(current_user.quiz_answers)
-        except:
-            saved_answers = {}
-            
-    eating_type = current_user.get_eating_type()
     return render_template('quiz_results.html', 
-                         eating_type=eating_type,
-                         saved_answers=saved_answers)
-
-@app.route('/submit_quiz', methods=['POST'])
-def submit_quiz():
-    if not current_user.is_authenticated:
-        return redirect(url_for('login'))
-    
-    answers = {
-        'q1': int(request.form.get('q1', 0)),
-        'q2': int(request.form.get('q2', 0)),
-        'q3': int(request.form.get('q3', 0)),
-        'q4': int(request.form.get('q4', 0)),
-        'q5': int(request.form.get('q5', 0))
-    }
-    
-    total_score = sum(answers.values())
-    
-    if total_score <= 7:
-        eating_type = 1  # מאוזנת
-    elif total_score <= 12:
-        eating_type = 2  # רגשית
-    else:
-        eating_type = 3  # כפייתית
-    
-    # עדכון סוג האכילה של המשתמש
-    current_user.difficulty = eating_type
-    
-    # פתיחת פרק 5
-    completed_videos = set(current_user.completed_videos.split(',')) if current_user.completed_videos else set()
-    completed_videos.add('chapter5_intro')  # מוסיף את הסרטון הראשון של פרק 5
-    current_user.completed_videos = ','.join(filter(None, completed_videos))
-    
-    # עדכון ההתקדמות
-    total_videos = 15  # סך כל הסרטונים בקורס
-    current_user.progress = len(completed_videos) * 100 // total_videos
-    
-    db.session.commit()
-    
-    session['quiz_result'] = eating_type
-    return redirect(url_for('quiz_results'))
+                         eating_type=current_user.get_eating_type(),
+                         answers=current_user.get_quiz_answers())
 
 @app.route('/test-email')
 def test_email():
@@ -858,7 +816,20 @@ def update_settings():
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # יצירת כל הטבלאות מחדש
+        # יצירת הטבלאות אם הן לא קיימות
+        db.create_all()
+        
+        # בדיקה אם העמודה quiz_answers קיימת
+        inspector = db.inspect(db.engine)
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        
+        if 'quiz_answers' not in columns:
+            # הוספת העמודה quiz_answers
+            with db.engine.connect() as conn:
+                conn.execute(db.text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_answers JSONB DEFAULT '{}'::jsonb"
+                ))
+                conn.commit()
         
         # הוספת מחיר ברירת מחדל אם לא קיים
         if not Settings.query.filter_by(key='course_price').first():
