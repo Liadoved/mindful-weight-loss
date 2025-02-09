@@ -656,21 +656,42 @@ def quiz():
 
 @app.route('/submit_quiz', methods=['POST'])
 def submit_quiz():
-    try:
-        results = request.get_json()
-        
-        # Save results in session
-        session['quiz_results'] = results
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'התוצאות נשמרו בהצלחה'
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+    
+    answers = {
+        'q1': int(request.form.get('q1', 0)),
+        'q2': int(request.form.get('q2', 0)),
+        'q3': int(request.form.get('q3', 0)),
+        'q4': int(request.form.get('q4', 0)),
+        'q5': int(request.form.get('q5', 0))
+    }
+    
+    total_score = sum(answers.values())
+    
+    if total_score <= 7:
+        eating_type = 1  # מאוזנת
+    elif total_score <= 12:
+        eating_type = 2  # רגשית
+    else:
+        eating_type = 3  # כפייתית
+    
+    # עדכון סוג האכילה של המשתמש
+    current_user.difficulty = eating_type
+    
+    # פתיחת פרק 5
+    completed_videos = set(current_user.completed_videos.split(',')) if current_user.completed_videos else set()
+    completed_videos.add('chapter5_intro')  # מוסיף את הסרטון הראשון של פרק 5
+    current_user.completed_videos = ','.join(filter(None, completed_videos))
+    
+    # עדכון ההתקדמות
+    total_videos = 15  # סך כל הסרטונים בקורס
+    current_user.progress = len(completed_videos) * 100 // total_videos
+    
+    db.session.commit()
+    
+    session['quiz_result'] = eating_type
+    return redirect(url_for('quiz_results'))
 
 @app.route('/quiz_results')
 def quiz_results():

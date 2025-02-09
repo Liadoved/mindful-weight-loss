@@ -194,14 +194,10 @@
                                 </small>
                             </td>
                             <td>
-                                {% if user.difficulty == 1 %}
-                                    <span class="badge bg-success">אכלנית מאוזנת</span>
-                                {% elif user.difficulty == 2 %}
-                                    <span class="badge bg-warning">אכלנית רגשית</span>
-                                {% elif user.difficulty == 3 %}
-                                    <span class="badge bg-danger">אכלנית כפייתית</span>
+                                {% if user.difficulty != 0 %}
+                                    {{ user.get_eating_type() }}
                                 {% else %}
-                                    <span class="badge bg-secondary">טרם סווג</span>
+                                    טרם ביצעה אבחון
                                 {% endif %}
                             </td>
                             <td>{{ user.registration_date.strftime('%Y-%m-%d %H:%M') if user.registration_date else 'לא ידוע' }}</td>
