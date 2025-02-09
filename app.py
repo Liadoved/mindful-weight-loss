@@ -220,139 +220,70 @@ def logout():
     return redirect(url_for('index'))
 
 @app.route('/course')
-@login_required
 def course():
-    try:
-        completed_videos = []
-        if current_user.completed_videos:
-            completed_videos = current_user.completed_videos.split(',')
-            
-        app.logger.info(f"Completed videos: {completed_videos}")
-        
-        # חישוב ההתקדמות
-        progress = 0
-        if completed_videos:
-            progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
-            
-        app.logger.info(f"Progress: {progress}%")
-        
-        # קביעת הפרק הבא
-        next_chapter = 1
-        for i in range(1, 8):  # 7 chapters total
-            if str(i) not in completed_videos:
-                next_chapter = i
-                break
-        
-        app.logger.info(f"Next chapter: {next_chapter}")
-        
-        return render_template('course.html',
-                             completed_videos=completed_videos,
-                             progress=progress,
-                             next_chapter=next_chapter)
-    except Exception as e:
-        app.logger.error(f"Error in course route: {str(e)}")
-        return render_template('course.html', completed_videos=[], progress=0, next_chapter=1)
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+    
+    # Get completed videos from session
+    completed_videos = session.get('completed_videos', [])
+    
+    # Define chapters
+    chapters = {
+        '1': 'פרק ראשון - מבוא',
+        '2': 'פרק שני - הכרת דפוסי האכילה',
+        '3': 'פרק שלישי - זיהוי רעב ושובע',
+        '4': 'פרק רביעי - אכילה מודעת',
+        '5': 'פרק חמישי - שאלון אבחון',
+        '6': 'פרק שישי - סיכום'
+    }
+    
+    return render_template('course.html', 
+                         chapters=chapters,
+                         completed_videos=completed_videos)
 
-@app.route('/mark_complete/<video_id>', methods=['POST'])
-@login_required
-def mark_complete(video_id):
-    try:
-        if not current_user.completed_videos:
-            completed_videos = []
-        else:
-            completed_videos = current_user.completed_videos.split(',')
-        
-        app.logger.info(f"Current completed videos: {completed_videos}")
-        app.logger.info(f"Trying to mark as complete: {video_id}")
-        
-        # Handle regular chapters
-        video_id = str(video_id)
-        prev_chapter = str(int(video_id) - 1) if video_id.isdigit() else None
-        
-        # בדיקה אם ניתן לפתוח את הפרק
-        can_unlock = (
-            video_id == '1' or  # פרק ראשון תמיד פתוח
-            video_id in completed_videos or  # פרק שכבר הושלם
-            prev_chapter in completed_videos  # הפרק הקודם הושלם
-        )
-        
-        app.logger.info(f"Can unlock chapter {video_id}? {can_unlock}")
-        app.logger.info(f"Previous chapter: {prev_chapter}")
-        
-        if can_unlock and video_id not in completed_videos:
-            completed_videos.append(video_id)
-            current_user.completed_videos = ','.join(completed_videos)
-            
-            # Calculate progress
-            progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
-            current_user.progress = progress
-            
-            app.logger.info(f"Chapter {video_id} marked as complete. New progress: {progress}%")
-            app.logger.info(f"New completed videos: {completed_videos}")
-            
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'progress': progress
-            })
-        
-        return jsonify({'success': False, 'message': 'לא ניתן לסמן כהושלם'})
-        
-    except Exception as e:
-        app.logger.error(f"Error marking video as complete: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)})
+@app.route('/mark_complete/<int:chapter_id>', methods=['POST'])
+def mark_complete(chapter_id):
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'message': 'נדרשת התחברות'})
+    
+    # Get completed videos from session
+    completed_videos = session.get('completed_videos', [])
+    
+    # Add the chapter to completed videos if not already there
+    if str(chapter_id) not in completed_videos:
+        completed_videos.append(str(chapter_id))
+        session['completed_videos'] = completed_videos
+    
+    # Calculate progress
+    total_chapters = 6
+    progress = (len(completed_videos) / total_chapters) * 100
+    
+    return jsonify({
+        'success': True,
+        'progress': progress,
+        'message': 'הפרק סומן כהושלם בהצלחה'
+    })
 
-@app.route('/update_progress', methods=['POST'])
-@login_required
-def update_progress():
-    data = request.get_json()
-    current_user.completed_videos = ','.join(map(str, data['completed_videos']))
-    current_user.progress = len(data['completed_videos']) / TOTAL_ITEMS * 100
-    db.session.commit()
-    return jsonify({'status': 'success'})
+@app.route('/reset_progress', methods=['POST'])
+def reset_progress():
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'message': 'נדרשת התחברות'})
+    
+    # Clear completed videos from session
+    session['completed_videos'] = []
+    
+    return jsonify({
+        'success': True,
+        'message': 'ההתקדמות אופסה בהצלחה'
+    })
 
-@app.route('/get_progress')
-@login_required
-def get_progress():
-    try:
-        completed_videos = []
-        if current_user.completed_videos and current_user.completed_videos.strip():
-            completed_videos = current_user.completed_videos.split(',')
-            
-        progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
-        
-        return jsonify({
-            'completed_videos': completed_videos,
-            'progress': progress
-        })
-    except Exception as e:
-        app.logger.error(f"Error getting progress: {str(e)}")
-        return jsonify({
-            'completed_videos': [],
-            'progress': 0
-        })
-
-@app.route('/about-course')
+@app.route('/about_course')
 def about_course():
     return render_template('about_course.html')
 
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
-
-@app.route('/reset_progress', methods=['POST'])
-@login_required
-def reset_progress():
-    try:
-        current_user.completed_videos = ''
-        current_user.progress = 0
-        db.session.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        app.logger.error(f"Error resetting progress: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'message': 'An error occurred'})
 
 @app.route('/quiz')
 @login_required
