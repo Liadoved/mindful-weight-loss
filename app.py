@@ -814,6 +814,17 @@ def update_settings():
         flash('המחיר עודכן בהצלחה', 'success')
     return redirect(url_for('admin'))
 
+@app.route('/make_admin/<int:user_id>')
+@login_required
+@requires_admin
+def make_admin(user_id):
+    user = User.query.get_or_404(user_id)
+    if not user.is_admin:
+        user.is_admin = True
+        db.session.commit()
+        flash(f'המשתמש {user.username} הפך למנהל בהצלחה', 'success')
+    return redirect(url_for('admin'))
+
 _is_db_initialized = False
 
 @app.before_request
