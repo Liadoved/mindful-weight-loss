@@ -251,7 +251,8 @@ google = oauth.remote_app(
     consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
     consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
     request_token_params={
-        'scope': 'email profile'
+        'scope': ['email', 'profile'],
+        'access_type': 'offline'
     },
     base_url='https://www.googleapis.com/oauth2/v1/',
     request_token_url=None,
@@ -259,6 +260,10 @@ google = oauth.remote_app(
     access_token_url='https://accounts.google.com/o/oauth2/token',
     authorize_url='https://accounts.google.com/o/oauth2/auth'
 )
+
+@google.tokengetter
+def get_google_oauth_token():
+    return session.get('google_token')
 
 @app.route('/login/google')
 def google_login():
