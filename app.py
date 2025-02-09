@@ -8,6 +8,11 @@ from dotenv import load_dotenv
 import logging
 from logging.handlers import RotatingFileHandler
 from functools import wraps
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import string
+import random
 
 # Load environment variables
 load_dotenv()
@@ -93,6 +98,52 @@ def requires_admin(f):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+def generate_password(length=10):
+    """Generate a random password."""
+    characters = string.ascii_letters + string.digits + "!@#$%^&*"
+    return ''.join(random.choice(characters) for i in range(length))
+
+def send_registration_email(email, username, password):
+    """Send registration confirmation email with login credentials."""
+    sender_email = "razit.mindful@gmail.com"  # כתובת המייל של המערכת
+    sender_password = os.environ.get("EMAIL_PASSWORD")
+    
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = email
+    msg['Subject'] = "ברוכים הבאים לקורס רזית!"
+    
+    body = f"""
+    שלום רב,
+    
+    תודה שנרשמת לקורס רזית! אנחנו שמחים לראות אותך איתנו.
+    
+    פרטי ההתחברות שלך:
+    שם משתמש: {username}
+    סיסמה: {password}
+    
+    אנא שמור/י פרטים אלו במקום בטוח.
+    
+    ניתן להתחבר לאתר בכתובת:
+    https://mindful-weight-loss.onrender.com/login
+    
+    בברכה,
+    צוות רזית
+    """
+    
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+    
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        app.logger.error(f"Failed to send email: {str(e)}")
+        return False
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -100,109 +151,67 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        # Extract form data with default values
-        username = request.form.get('email', '').strip()
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '').strip()
-        full_name = request.form.get('full_name', '').strip()
-        age = request.form.get('age', '')
-        gender = request.form.get('gender', '').strip()
-        address = request.form.get('address', '').strip()
-        city = request.form.get('city', '').strip()
-        phone = request.form.get('phone', '').strip()
-        difficulty = request.form.get('difficulty', '')
-        comments = request.form.get('comments', '').strip()
+        email = request.form.get('email')
+        full_name = request.form.get('full_name')
+        age = request.form.get('age')
+        gender = request.form.get('gender')
+        phone = request.form.get('phone')
+        city = request.form.get('city')
+        address = request.form.get('address')
+        difficulty = request.form.get('difficulty')
+        comments = request.form.get('comments')
 
-        # לוג פרטי הרשמה
-        app.logger.info(f'Registration attempt: {username}, {email}')
-
-        # Validate required fields
-        if not all([username, email, password, full_name]):
-            app.logger.warning('Registration failed: Missing required fields')
-            flash('אנא מלא את כל השדות החובה', 'error')
+        # בדיקת שדות חובה
+        required_fields = {'email': email, 'full_name': full_name, 'age': age, 
+                         'gender': gender, 'phone': phone, 'difficulty': difficulty}
+        
+        missing_fields = [field for field, value in required_fields.items() if not value]
+        
+        if missing_fields:
+            app.logger.warning(f"Registration failed: Missing required fields: {', '.join(missing_fields)}")
+            flash("אנא מלא/י את כל שדות החובה")
             return render_template('register.html')
 
-        # Check if user already exists
-        user = User.query.filter_by(username=username).first()
-        if user:
-            app.logger.warning(f'Registration failed: User {username} already exists')
-            flash('משתמש קיים במערכת', 'error')
+        # בדיקה אם המשתמש כבר קיים
+        if User.query.filter_by(email=email).first():
+            flash("כתובת האימייל כבר רשומה במערכת")
             return render_template('register.html')
-
-        # Convert age and difficulty to integers safely
-        try:
-            age = int(age) if age else None
-            difficulty = int(difficulty) if difficulty else None
-        except ValueError:
-            app.logger.warning('Registration failed: Invalid age or difficulty')
-            flash('גיל ורמת קושי צריכים להיות מספרים', 'error')
-            return render_template('register.html')
-
-        # Create new user
-        new_user = User(
-            username=username,
-            email=email,
-            full_name=full_name,
-            age=age,
-            gender=gender,
-            address=address,
-            city=city,
-            phone=phone,
-            difficulty=difficulty,
-            comments=comments
-        )
-        new_user.set_password(password)
 
         try:
+            # יצירת סיסמה רנדומלית
+            password = generate_password()
+            
+            # יצירת משתמש חדש
+            new_user = User(
+                username=email,  # משתמשים באימייל בתור שם משתמש
+                email=email,
+                password_hash=generate_password_hash(password),
+                full_name=full_name,
+                age=int(age),
+                gender=gender,
+                phone=phone,
+                city=city or None,
+                address=address or None,
+                difficulty=int(difficulty),
+                comments=comments or None,
+                registration_date=db.func.current_timestamp()
+            )
+            
             db.session.add(new_user)
             db.session.commit()
-            app.logger.info(f'User {username} registered successfully')
-
-            # Send confirmation email
-            try:
-                msg = Message('ברוכים הבאים לקורס הרזיה מודעת!',
-                            sender=app.config['MAIL_USERNAME'],
-                            recipients=[email])
-                msg.body = f'''שלום {full_name},
-
-תודה שנרשמת לקורס הרזיה מודעת! אנחנו שמחים לקבל אותך לקהילה שלנו.
-
-פרטי ההתחברות שלך לאתר:
-------------------------
-שם משתמש: {email}
-סיסמה: {password}
-
-כדי להתחיל את הקורס:
-1. היכנס/י לאתר בכתובת: http://localhost:5002/login
-2. הזן/י את פרטי ההתחברות שלך
-3. התחל/י את המסע שלך להרזיה מודעת!
-
-אם יש לך שאלות או בעיות בהתחברות, אל תהסס/י ליצור איתנו קשר.
-
-בברכה,
-צוות הרזיה מודעת'''
-                
-                # שלח את המייל
-                mail.send(msg)
-                app.logger.info(f'Confirmation email sent to {email}')
-                
-                # הודעת הבזק להצגה למשתמש
-                flash('ההרשמה בוצעה בהצלחה! פרטי ההתחברות נשלחו למייל שלך.', 'success')
             
-            except Exception as email_error:
-                app.logger.error(f'Failed to send email: {str(email_error)}')
-                flash(f'ההרשמה בוצעה בהצלחה! שמור את פרטי ההתחברות: משתמש - {email}, סיסמה - {password}', 'warning')
-
-            # Log in the user automatically after registration
-            login_user(new_user)
-            
-            # Redirect to course page with a success message
-            return redirect(url_for('course'))
-        
+            # שליחת מייל עם פרטי ההתחברות
+            if send_registration_email(email, email, password):
+                flash("ההרשמה הושלמה בהצלחה! שלחנו לך מייל עם פרטי ההתחברות")
+                return redirect(url_for('login'))
+            else:
+                flash("ההרשמה הושלמה אך הייתה בעיה בשליחת המייל. אנא צור/י קשר עם התמיכה")
+                return redirect(url_for('login'))
+                
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f"Error during registration: {str(e)}")
-            flash('אירעה שגיאה בהרשמה. אנא נסה שוב.', 'error')
+            app.logger.error(f"Registration error: {str(e)}")
+            flash("אירעה שגיאה בתהליך ההרשמה. אנא נסה/י שוב מאוחר יותר")
             return render_template('register.html')
 
     return render_template('register.html')
