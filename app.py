@@ -1,29 +1,36 @@
-from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_mail import Mail, Message
+from datetime import datetime, timezone
+from functools import wraps
 import os
+from flask_oauthlib.client import OAuth
+from flask_migrate import Migrate
 from dotenv import load_dotenv
+from flask_mail import Mail, Message
 import logging
 from logging.handlers import RotatingFileHandler
-from functools import wraps
+import ssl
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import string
 import random
-from datetime import datetime, timezone
-import ssl
-from flask_oauthlib.client import OAuth
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://mindful_weight_loss_db_user:zD74Z46KHMson7xDWV6FGhqYqGpyrhtS@dpg-cuhi2g23esus73cjn9vg-a/mindful_weight_loss_db')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///users.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+mail = Mail(app)
 
 # Email configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -31,11 +38,6 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
-mail = Mail(app)
 
 # Video configuration
 VIDEOS = [
@@ -66,20 +68,16 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
-    full_name = db.Column(db.String(100))
-    age = db.Column(db.Integer)
-    gender = db.Column(db.String(20))
-    address = db.Column(db.String(200))
-    city = db.Column(db.String(100))
+    password_hash = db.Column(db.String(120))
+    full_name = db.Column(db.String(120))
     phone = db.Column(db.String(20))
-    difficulty = db.Column(db.Integer, default=0)  # 0: לא סווג, 1: מאוזנת, 2: רגשית, 3: כפייתית
-    comments = db.Column(db.Text)
-    is_admin = db.Column(db.Boolean, default=False)
-    registration_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    gender = db.Column(db.String(10))  # זכר/נקבה
+    registration_date = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime)
-    progress = db.Column(db.Integer, default=0)  # התקדמות באחוזים
-    completed_videos = db.Column(db.Text, default='')  # רשימת סרטונים שהושלמו, מופרדים בפסיקים
+    difficulty = db.Column(db.Integer, default=0)  # 0=לא ענה, 1=מאוזנת, 2=רגשית, 3=כפייתית
+    completed_videos = db.Column(db.Text, default='')
+    progress = db.Column(db.Integer, default=0)
+    is_admin = db.Column(db.Boolean, default=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -89,7 +87,6 @@ class User(UserMixin, db.Model):
 
     def get_eating_type(self):
         types = {
-            0: 'טרם סווג',
             1: 'אכלנית מאוזנת',
             2: 'אכלנית רגשית',
             3: 'אכלנית כפייתית'
@@ -108,6 +105,29 @@ class User(UserMixin, db.Model):
         # עדכון התקדמות
         total_videos = 10  # מספר הסרטונים הכולל בקורס
         self.progress = min(100, int((len(completed) / total_videos) * 100))
+        db.session.commit()
+
+class Settings(db.Model):
+    __tablename__ = 'settings'
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(50), unique=True, nullable=False)
+    value = db.Column(db.String(500), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+
+    @staticmethod
+    def get_course_price():
+        setting = Settings.query.filter_by(key='course_price').first()
+        return setting.value if setting else '997'
+
+    @staticmethod
+    def set_course_price(price):
+        setting = Settings.query.filter_by(key='course_price').first()
+        if not setting:
+            setting = Settings(key='course_price', value=str(price))
+            db.session.add(setting)
+        else:
+            setting.value = str(price)
+            setting.updated_at = datetime.now(timezone.utc)
         db.session.commit()
 
 def requires_admin(f):
@@ -246,24 +266,26 @@ def send_registration_email(email, username, password, user_data, is_admin=False
         return False
 
 oauth = OAuth(app)
-google = oauth.remote_app(
-    'google',
-    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
-    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    request_token_params={
-        'scope': ['email', 'profile'],
-        'access_type': 'offline'
-    },
-    base_url='https://www.googleapis.com/oauth2/v1/',
-    request_token_url=None,
-    access_token_method='POST',
-    access_token_url='https://accounts.google.com/o/oauth2/token',
-    authorize_url='https://accounts.google.com/o/oauth2/auth'
-)
 
-@google.tokengetter
-def get_google_oauth_token():
-    return session.get('google_token')
+if os.getenv('GOOGLE_CLIENT_ID') and os.getenv('GOOGLE_CLIENT_SECRET'):
+    google = oauth.remote_app(
+        'google',
+        consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
+        consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+        request_token_params={
+            'scope': ['email', 'profile'],
+            'access_type': 'offline'
+        },
+        base_url='https://www.googleapis.com/oauth2/v1/',
+        request_token_url=None,
+        access_token_method='POST',
+        access_token_url='https://accounts.google.com/o/oauth2/token',
+        authorize_url='https://accounts.google.com/o/oauth2/auth'
+    )
+
+    @google.tokengetter
+    def get_google_oauth_token():
+        return session.get('google_token')
 
 @app.route('/login/google')
 def google_login():
@@ -488,7 +510,7 @@ def login():
             db.or_(User.email == username, User.username == username)
         ).first()
         
-        if user and check_password_hash(user.password_hash, password):
+        if user and user.check_password(password):
             login_user(user)
             
             # עדכון זמן התחברות אחרון
@@ -745,24 +767,66 @@ def setup_database():
 @login_required
 @requires_admin
 def admin():
-    users = User.query.all()
-    return render_template('admin.html', users=users)
-
-@app.route('/make-admin/<int:user_id>')
-@login_required
-def make_admin(user_id):
-    if not current_user.is_admin:
-        flash('אין לך הרשאות לבצע פעולה זו')
-        return redirect(url_for('index'))
+    users = User.query.filter_by(is_admin=False).all()
     
-    user = User.query.get_or_404(user_id)
-    user.is_admin = True
-    db.session.commit()
-    flash(f'המשתמש {user.username} הפך למנהל')
+    # חישוב סטטיסטיקות
+    total_users = len(users)
+    female_users = len([u for u in users if u.gender == 'נקבה'])
+    male_users = len([u for u in users if u.gender == 'זכר'])
+    
+    female_percentage = round((female_users / total_users * 100) if total_users > 0 else 0)
+    male_percentage = round((male_users / total_users * 100) if total_users > 0 else 0)
+    
+    # סטטיסטיקות אכלניות
+    users_with_type = [u for u in users if u.difficulty != 0]
+    total_typed = len(users_with_type) if len(users_with_type) > 0 else 1
+    
+    balanced_eaters = len([u for u in users if u.difficulty == 1])
+    emotional_eaters = len([u for u in users if u.difficulty == 2])
+    compulsive_eaters = len([u for u in users if u.difficulty == 3])
+    
+    balanced_percentage = round((balanced_eaters / total_typed * 100))
+    emotional_percentage = round((emotional_eaters / total_typed * 100))
+    compulsive_percentage = round((compulsive_eaters / total_typed * 100))
+    
+    # ממוצע התקדמות
+    average_progress = round(sum(u.progress for u in users) / total_users if total_users > 0 else 0)
+    
+    # מחיר נוכחי
+    current_price = Settings.get_course_price()
+    
+    return render_template('admin.html',
+                         users=users,
+                         total_users=total_users,
+                         female_users=female_users,
+                         male_users=male_users,
+                         female_percentage=female_percentage,
+                         male_percentage=male_percentage,
+                         balanced_eaters=balanced_eaters,
+                         emotional_eaters=emotional_eaters,
+                         compulsive_eaters=compulsive_eaters,
+                         balanced_percentage=balanced_percentage,
+                         emotional_percentage=emotional_percentage,
+                         compulsive_percentage=compulsive_percentage,
+                         average_progress=average_progress,
+                         current_price=current_price)
+
+@app.route('/admin/settings', methods=['POST'])
+@login_required
+@requires_admin
+def update_settings():
+    price = request.form.get('course_price')
+    if price:
+        Settings.set_course_price(price)
+        flash('המחיר עודכן בהצלחה', 'success')
     return redirect(url_for('admin'))
 
 if __name__ == '__main__':
     with app.app_context():
-        # Create tables if they don't exist
-        db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5002)
+        db.create_all()  # יצירת כל הטבלאות מחדש
+        
+        # הוספת מחיר ברירת מחדל אם לא קיים
+        if not Settings.query.filter_by(key='course_price').first():
+            Settings.set_course_price('997')
+            
+    app.run(debug=True)

@@ -138,6 +138,38 @@
         .card-body {
             padding: 20px;
         }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-card h6 {
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card h3 {
+            color: #8a5dc7;
+            margin: 0;
+        }
+        
+        .progress {
+            height: 20px;
+        }
+        
+        .progress-bar {
+            background-color: #8a5dc7;
+        }
+        
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 1rem;
+                white-space: nowrap;
+            }
+        }
     </style>
 </head>
 <body class="admin-page">
@@ -146,6 +178,124 @@
     <div class="admin-container">
         <h1>ניהול משתמשים</h1>
         
+        <div class="container-fluid mt-4">
+            <div class="row">
+                <!-- סטטיסטיקות -->
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">סטטיסטיקות כלליות</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <h6>סה"כ משתמשים</h6>
+                                        <h3>{{ total_users }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <h6>התפלגות מגדרית</h6>
+                                        <p>נשים: {{ female_users }} ({{ female_percentage }}%)</p>
+                                        <p>גברים: {{ male_users }} ({{ male_percentage }}%)</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <h6>התפלגות סיווג אכלניות</h6>
+                                        <p>מאוזנות: {{ balanced_eaters }} ({{ balanced_percentage }}%)</p>
+                                        <p>רגשיות: {{ emotional_eaters }} ({{ emotional_percentage }}%)</p>
+                                        <p>כפייתיות: {{ compulsive_eaters }} ({{ compulsive_percentage }}%)</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <h6>ממוצע התקדמות</h6>
+                                        <h3>{{ average_progress }}%</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- הגדרות -->
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">הגדרות</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="{{ url_for('update_settings') }}">
+                                <div class="form-group">
+                                    <label for="course_price">מחיר הקורס</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="course_price" name="course_price" value="{{ current_price }}" required>
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">₪</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">עדכן הגדרות</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- טבלת משתמשים -->
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">רשימת משתמשים</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>שם מלא</th>
+                                            <th>אימייל</th>
+                                            <th>טלפון</th>
+                                            <th>מגדר</th>
+                                            <th>תאריך הרשמה</th>
+                                            <th>התחברות אחרונה</th>
+                                            <th>סיווג אכלנית</th>
+                                            <th>התקדמות</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in users %}
+                                        <tr>
+                                            <td>{{ user.full_name }}</td>
+                                            <td>{{ user.email }}</td>
+                                            <td>{{ user.phone }}</td>
+                                            <td>{{ user.gender }}</td>
+                                            <td>{{ user.registration_date.strftime('%d/%m/%Y %H:%M') }}</td>
+                                            <td>{{ user.last_login.strftime('%d/%m/%Y %H:%M') if user.last_login else 'טרם התחבר/ה' }}</td>
+                                            <td>
+                                                {% if user.difficulty != 0 %}
+                                                    {{ user.get_eating_type() }}
+                                                {% else %}
+                                                    טרם ביצעה אבחון
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="progress">
+                                                    <div class="progress-bar" role="progressbar" style="width: {{ user.progress }}%" aria-valuenow="{{ user.progress }}" aria-valuemin="0" aria-valuemax="100">{{ user.progress }}%</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="חיפוש משתמשים...">
             <button class="export-button" onclick="exportToExcel()">
