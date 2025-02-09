@@ -65,14 +65,14 @@ app.logger.setLevel(logging.INFO)
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(120))
-    gender = db.Column(db.String(10))  # הוספת עמודת מגדר
+    full_name = db.Column(db.String(120))
+    gender = db.Column(db.String(10))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone('Asia/Jerusalem')))
     last_login = db.Column(db.DateTime)
     is_admin = db.Column(db.Boolean, default=False)
     quiz_answers = db.Column(db.JSON)
     difficulty = db.Column(db.Integer)
-    completed_videos = db.Column(db.JSON, default=list)
+    completed_videos = db.Column(db.Text, default='')
     
     def update_last_login(self):
         self.last_login = datetime.now(timezone('Asia/Jerusalem'))
@@ -351,8 +351,8 @@ def index():
 def register():
     if request.method == 'POST':
         email = request.form.get('email')
-        name = request.form.get('name')
-        gender = request.form.get('gender')  # קבלת המגדר מהטופס
+        full_name = request.form.get('full_name')
+        gender = request.form.get('gender')
         
         if User.query.filter_by(email=email).first():
             flash('כתובת האימייל כבר קיימת במערכת', 'danger')
@@ -360,8 +360,8 @@ def register():
         
         user = User(
             email=email,
-            name=name,
-            gender=gender,  # שמירת המגדר
+            full_name=full_name,
+            gender=gender,
             created_at=datetime.now(timezone('Asia/Jerusalem')),
             last_login=datetime.now(timezone('Asia/Jerusalem'))
         )
@@ -426,7 +426,7 @@ def course():
     
     return render_template('course.html', 
                          user=current_user,
-                         completed_videos=current_user.completed_videos or [],
+                         completed_videos=current_user.completed_videos.split(',') if current_user.completed_videos else [],
                          prices=prices)
 
 @app.route('/mark_complete/<video_id>', methods=['POST'])
@@ -436,7 +436,7 @@ def mark_complete(video_id):
         if not current_user.completed_videos:
             completed_videos = []
         else:
-            completed_videos = current_user.completed_videos
+            completed_videos = current_user.completed_videos.split(',')
         
         app.logger.info(f"Current completed videos: {completed_videos}")
         app.logger.info(f"Trying to mark as complete: {video_id}")
@@ -457,7 +457,7 @@ def mark_complete(video_id):
         
         if can_unlock and video_id not in completed_videos:
             completed_videos.append(video_id)
-            current_user.completed_videos = completed_videos
+            current_user.completed_videos = ','.join(completed_videos)
             
             # Calculate progress
             progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
@@ -483,7 +483,7 @@ def mark_complete(video_id):
 @login_required
 def update_progress():
     data = request.get_json()
-    current_user.completed_videos = data['completed_videos']
+    current_user.completed_videos = ','.join(data['completed_videos'])
     current_user.progress = len(data['completed_videos']) / TOTAL_ITEMS * 100
     db.session.commit()
     return jsonify({'status': 'success'})
@@ -492,7 +492,7 @@ def update_progress():
 @login_required
 def get_progress():
     try:
-        completed_videos = current_user.completed_videos or []
+        completed_videos = current_user.completed_videos.split(',') if current_user.completed_videos else []
         progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
         
         return jsonify({
@@ -518,7 +518,7 @@ def contact():
 @login_required
 def reset_progress():
     try:
-        current_user.completed_videos = []
+        current_user.completed_videos = ''
         current_user.progress = 0
         db.session.commit()
         return jsonify({'success': True})
@@ -672,10 +672,10 @@ def admin():
     active_users = sum(1 for user in users if user.last_login and user.last_login > thirty_days_ago)
     
     # משתמשים שסיימו את הקורס
-    completed_users = sum(1 for user in users if user.completed_videos and len(user.completed_videos) >= 10)
+    completed_users = sum(1 for user in users if user.completed_videos and len(user.completed_videos.split(',')) >= 10)
     
     # חישוב התקדמות ממוצעת
-    total_progress = sum(len(user.completed_videos or []) for user in users)
+    total_progress = sum(len(user.completed_videos.split(',')) if user.completed_videos else 0 for user in users)
     average_progress = round((total_progress / (total_users * 10)) * 100) if total_users > 0 else 0
     
     return render_template('admin.html',

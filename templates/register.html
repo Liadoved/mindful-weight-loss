@@ -15,22 +15,15 @@
         
         <form method="POST" action="{{ url_for('register') }}" class="registration-form">
             <div class="form-group">
-                <label for="full_name">שם מלא *</label>
+                <label for="full_name">שם מלא</label>
                 <input type="text" class="form-control" id="full_name" name="full_name" required>
             </div>
-            
             <div class="form-group">
-                <label for="email">אימייל *</label>
+                <label for="email">אימייל</label>
                 <input type="email" class="form-control" id="email" name="email" required>
             </div>
-            
             <div class="form-group">
-                <label for="age">גיל *</label>
-                <input type="number" class="form-control" id="age" name="age" required>
-            </div>
-            
-            <div class="form-group">
-                <label>מגדר *</label>
+                <label>מגדר</label>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="gender" id="female" value="female" required>
                     <label class="form-check-label" for="female">
@@ -43,12 +36,10 @@
                         גבר
                     </label>
                 </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="gender" id="other" value="other">
-                    <label class="form-check-label" for="other">
-                        אחר
-                    </label>
-                </div>
+            </div>
+            <div class="form-group">
+                <label for="age">גיל *</label>
+                <input type="number" class="form-control" id="age" name="age" required>
             </div>
             
             <div class="form-group">
