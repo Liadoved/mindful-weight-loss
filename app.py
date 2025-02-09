@@ -814,26 +814,33 @@ def update_settings():
         flash('המחיר עודכן בהצלחה', 'success')
     return redirect(url_for('admin'))
 
-@app.before_first_request
+_is_db_initialized = False
+
+@app.before_request
 def initialize_database():
-    # יצירת הטבלאות אם הן לא קיימות
-    db.create_all()
-    
-    # בדיקה אם העמודה quiz_answers קיימת
-    inspector = db.inspect(db.engine)
-    columns = [col['name'] for col in inspector.get_columns('users')]
-    
-    if 'quiz_answers' not in columns:
-        # הוספת העמודה quiz_answers
-        with db.engine.connect() as conn:
-            conn.execute(db.text(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_answers JSONB DEFAULT '{}'::jsonb"
-            ))
-            conn.commit()
-    
-    # הוספת מחיר ברירת מחדל אם לא קיים
-    if not Settings.query.filter_by(key='course_price').first():
-        Settings.set_course_price('997')
+    global _is_db_initialized
+    if not _is_db_initialized:
+        with app.app_context():
+            # יצירת הטבלאות אם הן לא קיימות
+            db.create_all()
+            
+            # בדיקה אם העמודה quiz_answers קיימת
+            inspector = db.inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('users')]
+            
+            if 'quiz_answers' not in columns:
+                # הוספת העמודה quiz_answers
+                with db.engine.connect() as conn:
+                    conn.execute(db.text(
+                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_answers JSONB DEFAULT '{}'::jsonb"
+                    ))
+                    conn.commit()
+            
+            # הוספת מחיר ברירת מחדל אם לא קיים
+            if not Settings.query.filter_by(key='course_price').first():
+                Settings.set_course_price('997')
+            
+            _is_db_initialized = True
 
 if __name__ == '__main__':
     app.run(debug=True)
