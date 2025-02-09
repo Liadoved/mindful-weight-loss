@@ -1,20 +1,32 @@
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_mail import Mail, Message
 import os
-from dotenv import load_dotenv
 import logging
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
+from flask_mail import Mail, Message
+from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
+
+# Database configuration
+if os.environ.get('DATABASE_URL'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+
+db = SQLAlchemy(app)
+
+# Login manager configuration
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 # Email configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -22,36 +34,9 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
 mail = Mail(app)
 
-# Video configuration
-VIDEOS = [
-    {"title": "פרק 1: מבוא לירידה במשקל מודעת", "duration": "15:00"},
-    {"title": "פרק 2: הבנת דפוסי אכילה", "duration": "20:00"},
-    {"title": "פרק 3: מיינדפולנס באכילה", "duration": "25:00"},
-    {"title": "פרק 4: התמודדות עם רגשות", "duration": "18:00"},
-    {"title": "פרק 5: בניית הרגלים בריאים", "duration": "22:00"},
-    {"title": "פרק 6: סיכום והמשך הדרך", "duration": "20:00"}
-]
-
-# Total number of items (chapters + quiz)
-TOTAL_ITEMS = 7  # 7 chapters including quiz
-
-# הגדרת לוגים
-if not os.path.exists('logs'):
-    os.mkdir('logs')
-file_handler = RotatingFileHandler('logs/registration.log', maxBytes=10240, backupCount=10)
-file_handler.setFormatter(logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-))
-file_handler.setLevel(logging.INFO)
-app.logger.addHandler(file_handler)
-app.logger.setLevel(logging.INFO)
-
+# User model
 class User(UserMixin, db.Model):
     __tablename__ = 'users'  # Explicitly set table name
     
@@ -80,6 +65,33 @@ class User(UserMixin, db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+# Configure logging
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+
+file_handler = RotatingFileHandler('logs/registration.log', maxBytes=10240, backupCount=10)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+file_handler.setLevel(logging.INFO)
+app.logger.addHandler(file_handler)
+app.logger.setLevel(logging.INFO)
+app.logger.info('Mindful Weight Loss startup')
+
+# Video configuration
+VIDEOS = [
+    {"title": "פרק 1: מבוא לירידה במשקל מודעת", "duration": "15:00"},
+    {"title": "פרק 2: הבנת דפוסי אכילה", "duration": "20:00"},
+    {"title": "פרק 3: מיינדפולנס באכילה", "duration": "25:00"},
+    {"title": "פרק 4: התמודדות עם רגשות", "duration": "18:00"},
+    {"title": "פרק 5: בניית הרגלים בריאים", "duration": "22:00"},
+    {"title": "פרק 6: סיכום והמשך הדרך", "duration": "20:00"}
+]
+
+# Total number of items (chapters + quiz)
+TOTAL_ITEMS = 7  # 7 chapters including quiz
+
+# Routes
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -197,85 +209,138 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        # Demo mode - auto login
+        demo_user = User.query.filter_by(username='demo').first()
+        if not demo_user:
+            demo_user = User(username='demo', email='demo@example.com')
+            demo_user.set_password('demo123')
+            db.session.add(demo_user)
+            db.session.commit()
         
-        try:
-            user = User.query.filter_by(username=username).first()
-            if user and user.check_password(password):
-                login_user(user)
-                return redirect(url_for('course'))
-            else:
-                flash('שם משתמש או סיסמה שגויים')
-        except Exception as e:
-            print(f"Error during login: {str(e)}")
-            flash('אירעה שגיאה בהתחברות. אנא נסה שוב.')
-            
+        login_user(demo_user)
+        return redirect(url_for('course'))
+    
     return render_template('login.html')
 
 @app.route('/logout')
-@login_required
 def logout():
     logout_user()
     return redirect(url_for('index'))
 
 @app.route('/course')
+@login_required
 def course():
-    if not current_user.is_authenticated:
-        return redirect(url_for('login'))
-    
-    # Get completed videos from session
-    completed_videos = session.get('completed_videos', [])
-    
-    # Define chapters
-    chapters = {
-        '1': 'פרק ראשון - מבוא',
-        '2': 'פרק שני - הכרת דפוסי האכילה',
-        '3': 'פרק שלישי - זיהוי רעב ושובע',
-        '4': 'פרק רביעי - אכילה מודעת',
-        '5': 'פרק חמישי - שאלון אבחון',
-        '6': 'פרק שישי - סיכום'
-    }
-    
-    return render_template('course.html', 
-                         chapters=chapters,
-                         completed_videos=completed_videos)
+    try:
+        completed_videos = []
+        if current_user.completed_videos:
+            completed_videos = current_user.completed_videos.split(',')
+            
+        app.logger.info(f"Completed videos: {completed_videos}")
+        
+        # חישוב ההתקדמות
+        progress = 0
+        if completed_videos:
+            progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
+            
+        app.logger.info(f"Progress: {progress}%")
+        
+        # קביעת הפרק הבא
+        next_chapter = 1
+        for i in range(1, 8):  # 7 chapters total
+            if str(i) not in completed_videos:
+                next_chapter = i
+                break
+        
+        app.logger.info(f"Next chapter: {next_chapter}")
+        
+        return render_template('course.html',
+                             completed_videos=completed_videos,
+                             progress=progress,
+                             next_chapter=next_chapter,
+                             videos=VIDEOS)
+    except Exception as e:
+        app.logger.error(f"Error in course route: {str(e)}")
+        return render_template('course.html', completed_videos=[], progress=0, next_chapter=1, videos=VIDEOS)
 
-@app.route('/mark_complete/<int:chapter_id>', methods=['POST'])
-def mark_complete(chapter_id):
-    if not current_user.is_authenticated:
-        return jsonify({'success': False, 'message': 'נדרשת התחברות'})
-    
-    # Get completed videos from session
-    completed_videos = session.get('completed_videos', [])
-    
-    # Add the chapter to completed videos if not already there
-    if str(chapter_id) not in completed_videos:
-        completed_videos.append(str(chapter_id))
-        session['completed_videos'] = completed_videos
-    
-    # Calculate progress
-    total_chapters = 6
-    progress = (len(completed_videos) / total_chapters) * 100
-    
-    return jsonify({
-        'success': True,
-        'progress': progress,
-        'message': 'הפרק סומן כהושלם בהצלחה'
-    })
+@app.route('/mark_complete/<video_id>', methods=['POST'])
+@login_required
+def mark_complete(video_id):
+    try:
+        if not current_user.completed_videos:
+            completed_videos = []
+        else:
+            completed_videos = current_user.completed_videos.split(',')
+        
+        app.logger.info(f"Current completed videos: {completed_videos}")
+        app.logger.info(f"Trying to mark as complete: {video_id}")
+        
+        # Handle regular chapters
+        video_id = str(video_id)
+        prev_chapter = str(int(video_id) - 1) if video_id.isdigit() else None
+        
+        # בדיקה אם ניתן לפתוח את הפרק
+        can_unlock = (
+            video_id == '1' or  # פרק ראשון תמיד פתוח
+            video_id in completed_videos or  # פרק שכבר הושלם
+            prev_chapter in completed_videos  # הפרק הקודם הושלם
+        )
+        
+        app.logger.info(f"Can unlock chapter {video_id}? {can_unlock}")
+        app.logger.info(f"Previous chapter: {prev_chapter}")
+        
+        if can_unlock and video_id not in completed_videos:
+            completed_videos.append(video_id)
+            current_user.completed_videos = ','.join(completed_videos)
+            
+            # Calculate progress
+            progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
+            current_user.progress = progress
+            
+            app.logger.info(f"Chapter {video_id} marked as complete. New progress: {progress}%")
+            app.logger.info(f"New completed videos: {completed_videos}")
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'progress': progress
+            })
+        
+        return jsonify({'success': False, 'message': 'לא ניתן לסמן כהושלם'})
+        
+    except Exception as e:
+        app.logger.error(f"Error marking video as complete: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)})
 
-@app.route('/reset_progress', methods=['POST'])
-def reset_progress():
-    if not current_user.is_authenticated:
-        return jsonify({'success': False, 'message': 'נדרשת התחברות'})
-    
-    # Clear completed videos from session
-    session['completed_videos'] = []
-    
-    return jsonify({
-        'success': True,
-        'message': 'ההתקדמות אופסה בהצלחה'
-    })
+@app.route('/update_progress', methods=['POST'])
+@login_required
+def update_progress():
+    data = request.get_json()
+    current_user.completed_videos = ','.join(map(str, data['completed_videos']))
+    current_user.progress = len(data['completed_videos']) / TOTAL_ITEMS * 100
+    db.session.commit()
+    return jsonify({'status': 'success'})
+
+@app.route('/get_progress')
+@login_required
+def get_progress():
+    try:
+        completed_videos = []
+        if current_user.completed_videos and current_user.completed_videos.strip():
+            completed_videos = current_user.completed_videos.split(',')
+            
+        progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
+        
+        return jsonify({
+            'completed_videos': completed_videos,
+            'progress': progress
+        })
+    except Exception as e:
+        app.logger.error(f"Error getting progress: {str(e)}")
+        return jsonify({
+            'completed_videos': [],
+            'progress': 0
+        })
 
 @app.route('/about_course')
 def about_course():
@@ -284,6 +349,19 @@ def about_course():
 @app.route('/contact')
 def contact():
     return render_template('contact.html')
+
+@app.route('/reset_progress', methods=['POST'])
+@login_required
+def reset_progress():
+    try:
+        current_user.completed_videos = ''
+        current_user.progress = 0
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f"Error resetting progress: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': 'An error occurred'})
 
 @app.route('/quiz')
 @login_required
@@ -327,6 +405,6 @@ def test_email():
 
 if __name__ == '__main__':
     with app.app_context():
-        # Create tables if they don't exist
         db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5002)
+    port = int(os.environ.get('PORT', 5002))
+    app.run(host='0.0.0.0', port=port, debug=True)
