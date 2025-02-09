@@ -18,6 +18,12 @@ admin_user = User(
 )
 
 with app.app_context():
+    # יצירת הטבלאות
+    print("Creating database tables...")
+    db.drop_all()  # מוחק את כל הטבלאות הקיימות
+    db.create_all()  # יוצר את כל הטבלאות מחדש
+    print("Database tables created successfully!")
+
     # בדיקה אם המשתמש כבר קיים
     existing_admin = User.query.filter_by(username='admin').first()
     if existing_admin is None:
