@@ -281,13 +281,14 @@ google = oauth.remote_app(
     consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
     consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
     request_token_params={
-        'scope': 'email'
+        'scope': ['email', 'profile', 'openid'],
+        'access_type': 'offline'
     },
-    base_url='https://www.googleapis.com/oauth2/v1/',
+    base_url='https://www.googleapis.com/oauth2/v2/',
     request_token_url=None,
     access_token_method='POST',
-    access_token_url='https://accounts.google.com/o/oauth2/token',
-    authorize_url='https://accounts.google.com/o/oauth2/auth',
+    access_token_url='https://oauth2.googleapis.com/token',
+    authorize_url='https://accounts.google.com/o/oauth2/v2/auth'
 )
 
 @google.tokengetter
@@ -300,113 +301,53 @@ def google_login():
 
 @app.route('/login/google/authorized')
 def google_authorized():
-    resp = google.authorized_response()
-    if resp is None or resp.get('access_token') is None:
-        return 'Access denied: reason={} error={}'.format(
-            request.args['error_reason'],
-            request.args['error_description']
-        )
-    
-    session['google_token'] = (resp['access_token'], '')
-    me = google.get('userinfo')
-    
-    # בדיקה אם המשתמש כבר קיים במערכת
-    user = User.query.filter_by(email=me.data['email']).first()
-    
-    if not user:
-        # יצירת משתמש חדש
-        username = me.data['email'].split('@')[0]  # שימוש בחלק הראשון של האימייל כשם משתמש
-        user = User(
-            username=username,
-            email=me.data['email'],
-            full_name=me.data.get('name', ''),
-            password_hash=generate_password_hash('google_oauth'),  # סיסמה אקראית למשתמשי גוגל
-            registration_date=datetime.now(timezone.utc)
-        )
-        db.session.add(user)
-        db.session.commit()
-
-        # שליחת מייל למנהל על משתמש חדש
-        user_data = {
-            'full_name': user.full_name,
-            'email': user.email,
-            'username': user.username,
-            'registration_date': user.registration_date,
-            'phone': '',
-            'age': None,
-            'gender': '',
-            'city': '',
-            'address': '',
-            'difficulty': 0,
-            'comments': 'נרשם באמצעות Google'
-        }
-        send_registration_email(user.email, user.username, '', user_data, is_admin=True)
-
-        # שליחת מייל ברוכים הבאים למשתמש
-        send_welcome_email(user)
-    
-    login_user(user)
-    user.last_login = datetime.now(timezone.utc)
-    db.session.commit()
-    
-    return redirect(url_for('index'))
-
-def send_welcome_email(user):
     try:
-        sender_email = "razit.mindful@gmail.com"
-        receiver_email = user.email
+        resp = google.authorized_response()
+        if resp is None or resp.get('access_token') is None:
+            error_reason = request.args.get('error_reason', 'unknown')
+            error_description = request.args.get('error_description', 'No data received.')
+            return f'Access denied: reason={error_reason} error={error_description}'
         
-        message = MIMEMultipart('alternative')
-        message["From"] = sender_email
-        message["To"] = receiver_email
-        message["Subject"] = "ברוכים הבאים לקורס המבוא של רזית"
+        session['google_token'] = (resp['access_token'], '')
         
-        html_content = f"""
-        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-            <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #8a5dc7; margin-bottom: 10px;">ברוכים הבאים לקורס המבוא של רזית!</h1>
-                <p style="color: #666; font-size: 18px;">אנחנו שמחים שהצטרפת אלינו למסע</p>
-            </div>
+        try:
+            me = google.get('userinfo')
+            if not me or not me.data:
+                return 'Failed to get user info'
             
-            <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-                    שלום {user.full_name},
-                </p>
-                
-                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-                    תודה שנרשמת לקורס המבוא שלנו! אנחנו מאמינים שתמצאי ערך רב בתכנים שהכנו עבורך.
-                </p>
-                
-                <p style="font-size: 16px; line-height: 1.6; margin: 20px 0;">
-                    את יכולה להתחבר לקורס בכל עת באמצעות חשבון הגוגל שלך.
-                </p>
-                
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://mindful-weight-loss.onrender.com/login" 
-                       style="background-color: #8a5dc7; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">
-                        התחברות לקורס
-                    </a>
-                </div>
-            </div>
+            # בדיקה אם המשתמש כבר קיים במערכת
+            user = User.query.filter_by(email=me.data['email']).first()
             
-            <div style="text-align: center; margin-top: 30px; color: #666;">
-                <p>אם יש לך שאלות, אנחנו כאן בשבילך!</p>
-                <p>צוות רזית</p>
-            </div>
-        </div>
-        """
-        
-        message.attach(MIMEText(html_content, 'html'))
-        
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-            server.login(sender_email, os.getenv('EMAIL_PASSWORD'))
-            server.send_message(message)
+            if not user:
+                # יצירת משתמש חדש
+                username = me.data['email'].split('@')[0]  # שימוש בחלק הראשון של האימייל כשם משתמש
+                base_username = username
+                counter = 1
+                
+                # בדיקה אם שם המשתמש כבר קיים ויצירת שם חדש אם צריך
+                while User.query.filter_by(username=username).first():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+                
+                user = User(
+                    username=username,
+                    email=me.data['email']
+                )
+                db.session.add(user)
+                db.session.commit()
             
-        return True
+            # התחברות המשתמש
+            login_user(user)
+            flash('התחברת בהצלחה!', 'success')
+            return redirect(url_for('course'))
+            
+        except Exception as e:
+            app.logger.error(f"Error getting user info: {str(e)}")
+            return 'Failed to get user info'
+            
     except Exception as e:
-        app.logger.error(f"Error sending welcome email: {str(e)}")
-        return False
+        app.logger.error(f"Error in google_authorized: {str(e)}")
+        return 'Error during authorization'
 
 @app.route('/')
 def index():
