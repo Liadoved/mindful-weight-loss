@@ -103,33 +103,58 @@ def generate_password(length=10):
     characters = string.ascii_letters + string.digits + "!@#$%^&*"
     return ''.join(random.choice(characters) for i in range(length))
 
-def send_registration_email(email, username, password):
-    """Send registration confirmation email with login credentials."""
-    sender_email = "razit.mindful@gmail.com"  # כתובת המייל של המערכת
+def send_registration_email(email, username, password, user_data=None, is_admin=False):
+    """Send registration confirmation email."""
+    sender_email = "razit.mindful@gmail.com"
+    admin_email = "razit.mindful@gmail.com"  # המייל של מנהל המערכת
     sender_password = os.environ.get("EMAIL_PASSWORD")
     
     msg = MIMEMultipart()
     msg['From'] = sender_email
-    msg['To'] = email
-    msg['Subject'] = "ברוכים הבאים לקורס רזית!"
     
-    body = f"""
-    שלום רב,
-    
-    תודה שנרשמת לקורס רזית! אנחנו שמחים לראות אותך איתנו.
-    
-    פרטי ההתחברות שלך:
-    שם משתמש: {username}
-    סיסמה: {password}
-    
-    אנא שמור/י פרטים אלו במקום בטוח.
-    
-    ניתן להתחבר לאתר בכתובת:
-    https://mindful-weight-loss.onrender.com/login
-    
-    בברכה,
-    צוות רזית
-    """
+    if is_admin:
+        # מייל למנהל המערכת
+        msg['To'] = admin_email
+        msg['Subject'] = "משתמש חדש נרשם לקורס!"
+        
+        body = f"""
+        משתמש חדש נרשם לקורס!
+        
+        פרטי המשתמש:
+        שם מלא: {user_data['full_name']}
+        אימייל: {user_data['email']}
+        טלפון: {user_data['phone']}
+        גיל: {user_data['age']}
+        מגדר: {user_data['gender']}
+        עיר: {user_data['city'] or 'לא צוין'}
+        כתובת: {user_data['address'] or 'לא צוין'}
+        רמת קושי: {user_data['difficulty']}
+        הערות: {user_data['comments'] or 'אין'}
+        
+        תאריך הרשמה: {user_data['registration_date'].strftime('%d/%m/%Y %H:%M')}
+        """
+    else:
+        # מייל למשתמש החדש
+        msg['To'] = email
+        msg['Subject'] = "ברוכים הבאים לקורס רזית!"
+        
+        body = f"""
+        שלום {user_data['full_name']},
+        
+        תודה שנרשמת לקורס רזית! אנחנו שמחים לראות אותך איתנו.
+        
+        פרטי ההתחברות שלך:
+        שם משתמש: {username}
+        סיסמה: {password}
+        
+        אנא שמור/י פרטים אלו במקום בטוח.
+        
+        ניתן להתחבר לאתר בכתובת:
+        https://mindful-weight-loss.onrender.com/login
+        
+        בברכה,
+        צוות רזית
+        """
     
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
     
@@ -178,8 +203,10 @@ def register():
             return render_template('register.html')
 
         try:
-            # יצירת סיסמה רנדומלית
-            password = generate_password()
+            # משתמשים במספר הטלפון כסיסמה
+            password = phone
+            
+            registration_date = db.func.current_timestamp()
             
             # יצירת משתמש חדש
             new_user = User(
@@ -194,19 +221,38 @@ def register():
                 address=address or None,
                 difficulty=int(difficulty),
                 comments=comments or None,
-                registration_date=db.func.current_timestamp()
+                registration_date=registration_date
             )
             
             db.session.add(new_user)
             db.session.commit()
             
-            # שליחת מייל עם פרטי ההתחברות
-            if send_registration_email(email, email, password):
+            # הכנת נתוני המשתמש לשליחה במייל
+            user_data = {
+                'full_name': full_name,
+                'email': email,
+                'phone': phone,
+                'age': age,
+                'gender': gender,
+                'city': city,
+                'address': address,
+                'difficulty': difficulty,
+                'comments': comments,
+                'registration_date': registration_date
+            }
+            
+            # שליחת מייל למשתמש
+            user_email_sent = send_registration_email(email, email, password, user_data, is_admin=False)
+            
+            # שליחת מייל למנהל
+            admin_email_sent = send_registration_email(email, email, password, user_data, is_admin=True)
+            
+            if user_email_sent and admin_email_sent:
                 flash("ההרשמה הושלמה בהצלחה! שלחנו לך מייל עם פרטי ההתחברות")
-                return redirect(url_for('login'))
             else:
                 flash("ההרשמה הושלמה אך הייתה בעיה בשליחת המייל. אנא צור/י קשר עם התמיכה")
-                return redirect(url_for('login'))
+            
+            return redirect(url_for('login'))
                 
         except Exception as e:
             db.session.rollback()
