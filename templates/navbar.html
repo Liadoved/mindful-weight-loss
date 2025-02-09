@@ -19,6 +19,12 @@
                     <i class="fas fa-book"></i>
                     קורס מבוא
                 </a>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin') }}" class="nav-link admin-link">
+                        <i class="fas fa-user-cog"></i>
+                        ניהול משתמשים
+                    </a>
+                {% endif %}
                 <a href="{{ url_for('logout') }}" class="nav-button">
                     <i class="fas fa-sign-out-alt"></i>
                     התנתקות

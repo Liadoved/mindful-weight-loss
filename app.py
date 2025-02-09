@@ -267,7 +267,7 @@ def login():
         return redirect(url_for('index'))
     
     if request.method == 'POST':
-        username = request.form.get('username')  # שינוי השם מ-email ל-username
+        username = request.form.get('username')
         password = request.form.get('password')
         
         if not username or not password:
@@ -283,9 +283,15 @@ def login():
             login_user(user)
             
             # עדכון זמן התחברות אחרון
-            user.last_login = db.func.current_timestamp()
+            user.last_login = datetime.now()
             db.session.commit()
             
+            # בדיקה אם יש הפניה לדף אחר
+            next_page = request.args.get('next')
+            if next_page:
+                return redirect(next_page)
+            
+            # אם אין הפניה, מעביר לדף הקורס
             return redirect(url_for('course'))
         else:
             flash('שם משתמש או סיסמה שגויים')
@@ -511,6 +517,19 @@ def setup_database():
 def admin():
     users = User.query.all()
     return render_template('admin.html', users=users)
+
+@app.route('/make-admin/<int:user_id>')
+@login_required
+def make_admin(user_id):
+    if not current_user.is_admin:
+        flash('אין לך הרשאות לבצע פעולה זו')
+        return redirect(url_for('index'))
+    
+    user = User.query.get_or_404(user_id)
+    user.is_admin = True
+    db.session.commit()
+    flash(f'המשתמש {user.username} הפך למנהל')
+    return redirect(url_for('admin'))
 
 if __name__ == '__main__':
     with app.app_context():

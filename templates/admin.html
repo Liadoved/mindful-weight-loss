@@ -81,6 +81,37 @@
         .export-button:hover {
             background-color: #45a049;
         }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .table {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .badge {
+            padding: 0.5em 1em;
+        }
+        
+        .btn-warning {
+            color: white;
+            background-color: #ffc107;
+        }
+        
+        .btn-warning:hover {
+            background-color: #ffb300;
+            color: white;
+        }
     </style>
 </head>
 <body class="admin-page">
@@ -97,37 +128,50 @@
             </button>
         </div>
 
-        <table class="users-table">
-            <thead>
-                <tr>
-                    <th>שם מלא</th>
-                    <th>אימייל</th>
-                    <th>התקדמות בקורס</th>
-                    <th>תאריך הרשמה</th>
-                    <th>כניסה אחרונה</th>
-                    <th>טלפון</th>
-                    <th>עיר</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user in users %}
-                <tr>
-                    <td>{{ user.full_name or 'לא צוין' }}</td>
-                    <td>{{ user.email }}</td>
-                    <td>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: {{ user.progress }}%;"></div>
-                        </div>
-                        {{ user.progress }}%
-                    </td>
-                    <td>{{ user.registration_date.strftime('%d/%m/%Y') if user.registration_date else 'לא צוין' }}</td>
-                    <td>{{ user.last_login.strftime('%d/%m/%Y %H:%M') if user.last_login else 'לא צוין' }}</td>
-                    <td>{{ user.phone or 'לא צוין' }}</td>
-                    <td>{{ user.city or 'לא צוין' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="container">
+            <h1 class="text-center mb-4">ניהול משתמשים</h1>
+            
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>שם מלא</th>
+                            <th>אימייל</th>
+                            <th>טלפון</th>
+                            <th>תאריך הרשמה</th>
+                            <th>התחברות אחרונה</th>
+                            <th>מנהל</th>
+                            <th>פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.full_name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.phone }}</td>
+                            <td>{{ user.registration_date.strftime('%Y-%m-%d %H:%M') if user.registration_date else 'לא ידוע' }}</td>
+                            <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'לא ידוע' }}</td>
+                            <td>
+                                {% if user.is_admin %}
+                                    <span class="badge bg-success">כן</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">לא</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not user.is_admin %}
+                                    <a href="{{ url_for('make_admin', user_id=user.id) }}" class="btn btn-warning btn-sm">
+                                        הפוך למנהל
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
