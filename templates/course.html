@@ -266,6 +266,33 @@
                 border: none;
             }
         }
+        
+        .price-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .original-price {
+            text-decoration: line-through;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .discount-price {
+            font-size: 1.2em;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .price-label {
+            margin-left: 10px;
+        }
+        
+        .highlight {
+            color: #dc3545;
+        }
     </style>
 </head>
 <body class="course-page">
@@ -380,7 +407,11 @@
                     {% else %}
                         <div class="video-container">
                             <iframe src="https://drive.google.com/file/d/{{ chapter.video_id }}/preview" 
-                                    allow="autoplay" allowfullscreen></iframe>
+                                    allow="autoplay; fullscreen; picture-in-picture"
+                                    allowfullscreen="true"
+                                    mozallowfullscreen="true"
+                                    webkitallowfullscreen="true"
+                                    style="border: none;"></iframe>
                         </div>
                         <button class="btn btn-success complete-button {% if chapter.number|string in completed_videos %}completed{% endif %}" 
                                 data-video="{{ chapter.number }}" 
@@ -408,14 +439,17 @@
                 <p>סיימת את קורס המבוא!</p>
             </div>
             <div class="modal-body">
-                <div class="special-price">
-                    <h3>מחיר מיוחד לבוגרות קורס המבוא</h3>
-                    <div class="price">
-                        <span class="original">₪2,400</span>
-                        <span class="discount">₪1,800</span>
+                <div class="price-section">
+                    <div class="original-price">
+                        <span class="price-label">מחיר מקורי:</span>
+                        <span class="price-value" id="originalPrice">טוען...</span>
                     </div>
-                    <p class="offer-note">* המחיר המיוחד בתוקף ל-24 שעות בלבד</p>
+                    <div class="discount-price">
+                        <span class="price-label">מחיר מבצע:</span>
+                        <span class="price-value highlight" id="discountPrice">טוען...</span>
+                    </div>
                 </div>
+                
                 <a href="https://wa.me/+972523303050?text=היי, סיימתי את קורס המבוא ואשמח להצטרף לסדנה במחיר המיוחד" class="whatsapp-button">
                     <i class="fab fa-whatsapp"></i>
                     אני רוצה להצטרף במחיר המיוחד
@@ -709,6 +743,16 @@
         function stopConfetti() {
             confetti.reset();
         }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/get_prices')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('originalPrice').textContent = data.original_price + ' ₪';
+                    document.getElementById('discountPrice').textContent = data.discount_price + ' ₪';
+                })
+                .catch(error => console.error('Error loading prices:', error));
+        });
     </script>
 </body>
 </html>

@@ -139,6 +139,12 @@ class Settings(db.Model):
             setting.updated_at = datetime.now(timezone.utc)
         db.session.commit()
 
+class Prices(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    original_price = db.Column(db.Integer, nullable=False)
+    discount_price = db.Column(db.Integer, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 def requires_admin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -777,6 +783,7 @@ def setup_database():
 @login_required
 @requires_admin
 def admin():
+    prices = Prices.query.order_by(Prices.updated_at.desc()).first()
     users = User.query.filter_by(is_admin=False).all()
     
     # חישוב סטטיסטיקות
@@ -806,6 +813,7 @@ def admin():
     current_price = Settings.get_course_price()
     
     return render_template('admin.html',
+                         prices=prices,
                          users=users,
                          total_users=total_users,
                          female_users=female_users,
@@ -820,6 +828,48 @@ def admin():
                          compulsive_percentage=compulsive_percentage,
                          average_progress=average_progress,
                          current_price=current_price)
+
+@app.route('/update_prices', methods=['POST'])
+@login_required
+@requires_admin
+def update_prices():
+    try:
+        original_price = int(request.form.get('originalPrice'))
+        discount_price = int(request.form.get('discountPrice'))
+        
+        if original_price <= 0 or discount_price <= 0:
+            flash('המחירים חייבים להיות מספרים חיוביים', 'danger')
+            return redirect(url_for('admin'))
+            
+        if discount_price > original_price:
+            flash('מחיר המבצע לא יכול להיות גבוה מהמחיר המקורי', 'danger')
+            return redirect(url_for('admin'))
+        
+        new_prices = Prices(
+            original_price=original_price,
+            discount_price=discount_price
+        )
+        db.session.add(new_prices)
+        db.session.commit()
+        
+        flash('המחירים עודכנו בהצלחה', 'success')
+    except ValueError:
+        flash('אנא הזן מספרים תקינים', 'danger')
+    except Exception as e:
+        flash('אירעה שגיאה בעדכון המחירים', 'danger')
+        app.logger.error(f'שגיאה בעדכון מחירים: {str(e)}')
+    
+    return redirect(url_for('admin'))
+
+@app.route('/get_prices')
+def get_prices():
+    prices = Prices.query.order_by(Prices.updated_at.desc()).first()
+    if not prices:
+        return jsonify({'original_price': 0, 'discount_price': 0})
+    return jsonify({
+        'original_price': prices.original_price,
+        'discount_price': prices.discount_price
+    })
 
 @app.route('/admin/settings', methods=['POST'])
 @login_required
