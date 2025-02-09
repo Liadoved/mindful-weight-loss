@@ -65,7 +65,7 @@ app.logger.setLevel(logging.INFO)
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    full_name = db.Column(db.String(120))
+    name = db.Column(db.String(120))  # שמירת העמודה הישנה
     gender = db.Column(db.String(10))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone('Asia/Jerusalem')))
     last_login = db.Column(db.DateTime)
@@ -73,6 +73,14 @@ class User(UserMixin, db.Model):
     quiz_answers = db.Column(db.JSON)
     difficulty = db.Column(db.Integer)
     completed_videos = db.Column(db.Text, default='')
+    
+    @property
+    def full_name(self):
+        return self.name
+    
+    @full_name.setter
+    def full_name(self, value):
+        self.name = value
     
     def update_last_login(self):
         self.last_login = datetime.now(timezone('Asia/Jerusalem'))
