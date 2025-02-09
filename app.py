@@ -13,8 +13,9 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import string
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 import ssl
+from flask_oauthlib.client import OAuth
 
 # Load environment variables
 load_dotenv()
@@ -75,7 +76,7 @@ class User(UserMixin, db.Model):
     difficulty = db.Column(db.Integer, default=0)  # 0: לא סווג, 1: מאוזנת, 2: רגשית, 3: כפייתית
     comments = db.Column(db.Text)
     is_admin = db.Column(db.Boolean, default=False)
-    registration_date = db.Column(db.DateTime, default=datetime.now)
+    registration_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime)
     progress = db.Column(db.Integer, default=0)  # התקדמות באחוזים
     completed_videos = db.Column(db.Text, default='')  # רשימת סרטונים שהושלמו, מופרדים בפסיקים
@@ -244,6 +245,135 @@ def send_registration_email(email, username, password, user_data, is_admin=False
         app.logger.error(f"Error sending email: {str(e)}")
         return False
 
+oauth = OAuth(app)
+google = oauth.remote_app(
+    'google',
+    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
+    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    request_token_params={
+        'scope': 'email profile'
+    },
+    base_url='https://www.googleapis.com/oauth2/v1/',
+    request_token_url=None,
+    access_token_method='POST',
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    authorize_url='https://accounts.google.com/o/oauth2/auth'
+)
+
+@app.route('/login/google')
+def google_login():
+    return google.authorize(callback=url_for('google_authorized', _external=True))
+
+@app.route('/login/google/authorized')
+def google_authorized():
+    resp = google.authorized_response()
+    if resp is None or resp.get('access_token') is None:
+        return 'Access denied: reason={} error={}'.format(
+            request.args['error_reason'],
+            request.args['error_description']
+        )
+    
+    session['google_token'] = (resp['access_token'], '')
+    me = google.get('userinfo')
+    
+    # בדיקה אם המשתמש כבר קיים במערכת
+    user = User.query.filter_by(email=me.data['email']).first()
+    
+    if not user:
+        # יצירת משתמש חדש
+        username = me.data['email'].split('@')[0]  # שימוש בחלק הראשון של האימייל כשם משתמש
+        user = User(
+            username=username,
+            email=me.data['email'],
+            full_name=me.data.get('name', ''),
+            password_hash=generate_password_hash('google_oauth'),  # סיסמה אקראית למשתמשי גוגל
+            registration_date=datetime.now(timezone.utc)
+        )
+        db.session.add(user)
+        db.session.commit()
+
+        # שליחת מייל למנהל על משתמש חדש
+        user_data = {
+            'full_name': user.full_name,
+            'email': user.email,
+            'username': user.username,
+            'registration_date': user.registration_date,
+            'phone': '',
+            'age': None,
+            'gender': '',
+            'city': '',
+            'address': '',
+            'difficulty': 0,
+            'comments': 'נרשם באמצעות Google'
+        }
+        send_registration_email(user.email, user.username, '', user_data, is_admin=True)
+
+        # שליחת מייל ברוכים הבאים למשתמש
+        send_welcome_email(user)
+    
+    login_user(user)
+    user.last_login = datetime.now(timezone.utc)
+    db.session.commit()
+    
+    return redirect(url_for('index'))
+
+def send_welcome_email(user):
+    try:
+        sender_email = "razit.mindful@gmail.com"
+        receiver_email = user.email
+        
+        message = MIMEMultipart('alternative')
+        message["From"] = sender_email
+        message["To"] = receiver_email
+        message["Subject"] = "ברוכים הבאים לקורס המבוא של רזית"
+        
+        html_content = f"""
+        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #8a5dc7; margin-bottom: 10px;">ברוכים הבאים לקורס המבוא של רזית!</h1>
+                <p style="color: #666; font-size: 18px;">אנחנו שמחים שהצטרפת אלינו למסע</p>
+            </div>
+            
+            <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                    שלום {user.full_name},
+                </p>
+                
+                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                    תודה שנרשמת לקורס המבוא שלנו! אנחנו מאמינים שתמצאי ערך רב בתכנים שהכנו עבורך.
+                </p>
+                
+                <p style="font-size: 16px; line-height: 1.6; margin: 20px 0;">
+                    את יכולה להתחבר לקורס בכל עת באמצעות חשבון הגוגל שלך.
+                </p>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="https://mindful-weight-loss.onrender.com/login" 
+                       style="background-color: #8a5dc7; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                        התחברות לקורס
+                    </a>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; color: #666;">
+                <p>אם יש לך שאלות, אנחנו כאן בשבילך!</p>
+                <p>צוות רזית</p>
+            </div>
+        </div>
+        """
+        
+        message.attach(MIMEText(html_content, 'html'))
+        
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(sender_email, os.getenv('EMAIL_PASSWORD'))
+            server.send_message(message)
+            
+        return True
+    except Exception as e:
+        app.logger.error(f"Error sending welcome email: {str(e)}")
+        return False
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -294,7 +424,7 @@ def register():
                 address=address or None,
                 difficulty=int(difficulty),
                 comments=comments or None,
-                registration_date=datetime.now()  # שימוש ב-datetime במקום current_timestamp
+                registration_date=datetime.now(timezone.utc)  # שימוש ב-datetime במקום current_timestamp
             )
             
             db.session.add(new_user)
@@ -357,7 +487,7 @@ def login():
             login_user(user)
             
             # עדכון זמן התחברות אחרון
-            user.last_login = datetime.now()
+            user.last_login = datetime.now(timezone.utc)
             db.session.commit()
             
             # בדיקה אם יש הפניה לדף אחר
