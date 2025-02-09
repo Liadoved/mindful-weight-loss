@@ -61,31 +61,53 @@ app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
 
 class User(UserMixin, db.Model):
-    __tablename__ = 'users'  # Explicitly set table name
-    
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
-    progress = db.Column(db.Integer, default=0)
-    completed_videos = db.Column(db.String(200), default='')
     full_name = db.Column(db.String(100))
     age = db.Column(db.Integer)
     gender = db.Column(db.String(20))
     address = db.Column(db.String(200))
     city = db.Column(db.String(100))
     phone = db.Column(db.String(20))
-    difficulty = db.Column(db.Integer)
+    difficulty = db.Column(db.Integer, default=0)  # 0: לא סווג, 1: מאוזנת, 2: רגשית, 3: כפייתית
     comments = db.Column(db.Text)
     is_admin = db.Column(db.Boolean, default=False)
-    registration_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+    registration_date = db.Column(db.DateTime, default=datetime.now)
     last_login = db.Column(db.DateTime)
+    progress = db.Column(db.Integer, default=0)  # התקדמות באחוזים
+    completed_videos = db.Column(db.Text, default='')  # רשימת סרטונים שהושלמו, מופרדים בפסיקים
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def get_eating_type(self):
+        types = {
+            0: 'טרם סווג',
+            1: 'אכלנית מאוזנת',
+            2: 'אכלנית רגשית',
+            3: 'אכלנית כפייתית'
+        }
+        return types.get(self.difficulty, 'טרם סווג')
+
+    def get_completed_videos_count(self):
+        if not self.completed_videos:
+            return 0
+        return len(self.completed_videos.split(','))
+
+    def mark_video_completed(self, video_id):
+        completed = set(self.completed_videos.split(',')) if self.completed_videos else set()
+        completed.add(str(video_id))
+        self.completed_videos = ','.join(sorted(completed))
+        # עדכון התקדמות
+        total_videos = 10  # מספר הסרטונים הכולל בקורס
+        self.progress = min(100, int((len(completed) / total_videos) * 100))
+        db.session.commit()
 
 def requires_admin(f):
     @wraps(f)
