@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash
 with app.app_context():
     db.create_all()
     
-    # Create a test user
+    # Create a test admin user
     test_user = User(
         username="test@example.com",
         email="test@example.com",
@@ -19,11 +19,12 @@ with app.app_context():
         difficulty=3,
         comments="משתמש לבדיקת המערכת",
         progress=0,
-        completed_videos=""
+        completed_videos="",
+        is_admin=True  # Define the user as an admin
     )
     
     # Add the user to the database
     db.session.add(test_user)
     db.session.commit()
     
-    print("Test user created successfully!")
+    print("Test admin user created successfully!")

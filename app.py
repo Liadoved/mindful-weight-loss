@@ -7,13 +7,14 @@ import os
 from dotenv import load_dotenv
 import logging
 from logging.handlers import RotatingFileHandler
+from functools import wraps
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-dev-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://mindful_weight_loss_db_user:zD74Z46KHMson7xDWV6FGhqYqGpyrhtS@dpg-cuhi2g23esus73cjn9vg-a/mindful_weight_loss_db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Email configuration
@@ -69,12 +70,24 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20))
     difficulty = db.Column(db.Integer)
     comments = db.Column(db.Text)
+    is_admin = db.Column(db.Boolean, default=False)
+    registration_date = db.Column(db.DateTime, default=db.func.current_timestamp())
+    last_login = db.Column(db.DateTime)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+def requires_admin(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            flash('אין לך הרשאות לצפות בדף זה', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -196,21 +209,21 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        user = User.query.filter_by(username=request.form['email']).first()
+        if user is None or not user.check_password(request.form['password']):
+            flash('שם משתמש או סיסמה לא נכונים', 'error')
+            return render_template('login.html')
         
-        try:
-            user = User.query.filter_by(username=username).first()
-            if user and user.check_password(password):
-                login_user(user)
-                return redirect(url_for('course'))
-            else:
-                flash('שם משתמש או סיסמה שגויים')
-        except Exception as e:
-            print(f"Error during login: {str(e)}")
-            flash('אירעה שגיאה בהתחברות. אנא נסה שוב.')
-            
+        # עדכון זמן הכניסה האחרון
+        user.last_login = db.func.current_timestamp()
+        db.session.commit()
+        
+        login_user(user)
+        return redirect(url_for('index'))
     return render_template('login.html')
 
 @app.route('/logout')
@@ -393,6 +406,13 @@ def test_email():
     except Exception as e:
         app.logger.error(f'Test email failed: {str(e)}')
         return f'Failed to send test email: {str(e)}'
+
+@app.route('/admin')
+@login_required
+@requires_admin
+def admin():
+    users = User.query.all()
+    return render_template('admin.html', users=users)
 
 if __name__ == '__main__':
     with app.app_context():
