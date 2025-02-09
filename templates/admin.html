@@ -112,6 +112,32 @@
             background-color: #ffb300;
             color: white;
         }
+
+        .progress {
+            border-radius: 10px;
+            background-color: #f0f0f0;
+        }
+
+        .progress-bar {
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .card {
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
     </style>
 </head>
 <body class="admin-page">
@@ -138,6 +164,8 @@
                             <th>שם מלא</th>
                             <th>אימייל</th>
                             <th>טלפון</th>
+                            <th>התקדמות</th>
+                            <th>סיווג אכלנית</th>
                             <th>תאריך הרשמה</th>
                             <th>התחברות אחרונה</th>
                             <th>מנהל</th>
@@ -150,6 +178,32 @@
                             <td>{{ user.full_name }}</td>
                             <td>{{ user.email }}</td>
                             <td>{{ user.phone }}</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-success" 
+                                         role="progressbar" 
+                                         style="width: {{ user.progress }}%;" 
+                                         aria-valuenow="{{ user.progress }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        {{ user.progress }}%
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    {{ user.completed_videos.split(',') | length if user.completed_videos else 0 }} שיעורים הושלמו
+                                </small>
+                            </td>
+                            <td>
+                                {% if user.difficulty == 1 %}
+                                    <span class="badge bg-success">אכלנית מאוזנת</span>
+                                {% elif user.difficulty == 2 %}
+                                    <span class="badge bg-warning">אכלנית רגשית</span>
+                                {% elif user.difficulty == 3 %}
+                                    <span class="badge bg-danger">אכלנית כפייתית</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">טרם סווג</span>
+                                {% endif %}
+                            </td>
                             <td>{{ user.registration_date.strftime('%Y-%m-%d %H:%M') if user.registration_date else 'לא ידוע' }}</td>
                             <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'לא ידוע' }}</td>
                             <td>
@@ -171,8 +225,102 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- תרשים סטטיסטי -->
+            <div class="row mt-5">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">התפלגות סיווג אכלניות</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="eatingTypeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">התקדמות ממוצעת בקורס</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="progressChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // נתונים לתרשים סיווג אכלניות
+        const eatingTypeData = {
+            labels: ['אכלנית מאוזנת', 'אכלנית רגשית', 'אכלנית כפייתית', 'טרם סווג'],
+            datasets: [{
+                data: [
+                    {{ users | selectattr('difficulty', 'eq', 1) | list | length }},
+                    {{ users | selectattr('difficulty', 'eq', 2) | list | length }},
+                    {{ users | selectattr('difficulty', 'eq', 3) | list | length }},
+                    {{ users | selectattr('difficulty', 'eq', 0) | list | length }}
+                ],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6c757d']
+            }]
+        };
+
+        // נתונים לתרשים התקדמות
+        const progressData = {
+            labels: ['0-25%', '26-50%', '51-75%', '76-100%'],
+            datasets: [{
+                label: 'מספר משתמשים',
+                data: [
+                    {{ users | selectattr('progress', 'le', 25) | list | length }},
+                    {{ users | selectattr('progress', 'gt', 25) | selectattr('progress', 'le', 50) | list | length }},
+                    {{ users | selectattr('progress', 'gt', 50) | selectattr('progress', 'le', 75) | list | length }},
+                    {{ users | selectattr('progress', 'gt', 75) | list | length }}
+                ],
+                backgroundColor: '#8a5dc7'
+            }]
+        };
+
+        // יצירת תרשים סיווג אכלניות
+        new Chart(document.getElementById('eatingTypeChart'), {
+            type: 'pie',
+            data: eatingTypeData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // יצירת תרשים התקדמות
+        new Chart(document.getElementById('progressChart'), {
+            type: 'bar',
+            data: progressData,
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    });
+    </script>
 
     <script>
         // חיפוש משתמשים

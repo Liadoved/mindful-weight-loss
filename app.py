@@ -127,6 +127,15 @@ def generate_password(length=10):
     characters = string.ascii_letters + string.digits + "!@#$%^&*"
     return ''.join(random.choice(characters) for i in range(length))
 
+def get_eating_type_text(difficulty):
+    types = {
+        1: "קל לי לרדת במשקל כשאני מחליטה",
+        2: "קשה לי לרדת במשקל בגלל אכילה רגשית",
+        3: "אני מרגישה תלות באוכל וקושי גדול לשלוט בכמויות",
+        0: "לא צוין"
+    }
+    return types.get(difficulty, "לא צוין")
+
 def send_registration_email(email, username, password, user_data, is_admin=False):
     try:
         sender_email = "razit.mindful@gmail.com"
@@ -137,21 +146,46 @@ def send_registration_email(email, username, password, user_data, is_admin=False
         message["To"] = receiver_email
         
         if is_admin:
-            message["Subject"] = f"משתמש חדש נרשם לקורס: {user_data['full_name']}"
+            message["Subject"] = f"משתמשת חדשה נרשמה לקורס: {user_data['full_name']}"
             html_content = f"""
             <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-                <h2 style="color: #8a5dc7; text-align: center; margin-bottom: 20px;">משתמש חדש נרשם לקורס!</h2>
-                <div style="background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <p style="margin-bottom: 15px;"><strong>שם מלא:</strong> {user_data['full_name']}</p>
-                    <p style="margin-bottom: 15px;"><strong>אימייל:</strong> {user_data['email']}</p>
-                    <p style="margin-bottom: 15px;"><strong>טלפון:</strong> {user_data['phone']}</p>
-                    <p style="margin-bottom: 15px;"><strong>גיל:</strong> {user_data['age']}</p>
-                    <p style="margin-bottom: 15px;"><strong>מגדר:</strong> {user_data['gender']}</p>
-                    <p style="margin-bottom: 15px;"><strong>עיר:</strong> {user_data['city'] or 'לא צוין'}</p>
-                    <p style="margin-bottom: 15px;"><strong>כתובת:</strong> {user_data['address'] or 'לא צוין'}</p>
-                    <p style="margin-bottom: 15px;"><strong>רמת קושי:</strong> {user_data['difficulty']}</p>
-                    <p style="margin-bottom: 15px;"><strong>הערות:</strong> {user_data['comments'] or 'אין'}</p>
-                    <p style="margin-bottom: 15px;"><strong>תאריך הרשמה:</strong> {user_data['registration_date'].strftime('%d/%m/%Y %H:%M')}</p>
+                <h2 style="color: #8a5dc7; text-align: center; margin-bottom: 20px; font-size: 24px;">משתמשת חדשה נרשמה לקורס!</h2>
+                
+                <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <h3 style="color: #8a5dc7; margin-bottom: 20px; font-size: 20px;">פרטים אישיים</h3>
+                    <div style="margin-bottom: 15px;">
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">שם מלא:</strong> {user_data['full_name']}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">אימייל:</strong> {user_data['email']}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">טלפון:</strong> {user_data['phone']}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">גיל:</strong> {user_data['age']}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">מגדר:</strong> {user_data['gender']}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">עיר:</strong> {user_data['city'] or 'לא צוין'}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">כתובת:</strong> {user_data['address'] or 'לא צוין'}</p>
+                    </div>
+                </div>
+
+                <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <h3 style="color: #8a5dc7; margin-bottom: 20px; font-size: 20px;">מידע על הקורס</h3>
+                    <div style="margin-bottom: 15px;">
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">רמת קושי בירידה במשקל:</strong></p>
+                        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                            {get_eating_type_text(user_data['difficulty'])}
+                        </div>
+                        
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">שיתוף נוסף מהמשתמשת:</strong></p>
+                        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 6px;">
+                            {user_data['comments'] or 'לא צוין'}
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h3 style="color: #8a5dc7; margin-bottom: 20px; font-size: 20px;">מידע טכני</h3>
+                    <div style="margin-bottom: 15px;">
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">תאריך הרשמה:</strong> {user_data['registration_date'].strftime('%d/%m/%Y %H:%M')}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">שם משתמש:</strong> {username}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">סיסמה:</strong> {password}</p>
+                    </div>
                 </div>
             </div>
             """
@@ -170,7 +204,7 @@ def send_registration_email(email, username, password, user_data, is_admin=False
                     </p>
                     
                     <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-                        תודה שנרשמת לקורס המבוא שלנו! אנחנו מאמינים שתמצא/י ערך רב בתכנים שהכנו עבורך.
+                        תודה שנרשמת לקורס המבוא שלנו! אנחנו מאמינים שתמצאי ערך רב בתכנים שהכנו עבורך.
                     </p>
                     
                     <div style="background-color: #f5f5f5; padding: 20px; border-radius: 6px; margin: 20px 0;">
