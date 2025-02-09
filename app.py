@@ -3,18 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
+from functools import wraps
 import os
 import json
+from flask_oauthlib.client import OAuth
 from dotenv import load_dotenv
 from flask_mail import Mail, Message
 import logging
-from logging.handlers import RotatingFileHandler
-import ssl
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-import string
-import random
 
 # Load environment variables
 load_dotenv()
@@ -264,25 +259,23 @@ def send_registration_email(email, username, password, user_data, is_admin=False
 
 oauth = OAuth(app)
 
-if os.getenv('GOOGLE_CLIENT_ID') and os.getenv('GOOGLE_CLIENT_SECRET'):
-    google = oauth.remote_app(
-        'google',
-        consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
-        consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-        request_token_params={
-            'scope': ['email', 'profile'],
-            'access_type': 'offline'
-        },
-        base_url='https://www.googleapis.com/oauth2/v1/',
-        request_token_url=None,
-        access_token_method='POST',
-        access_token_url='https://accounts.google.com/o/oauth2/token',
-        authorize_url='https://accounts.google.com/o/oauth2/auth'
-    )
+google = oauth.remote_app(
+    'google',
+    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
+    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    request_token_params={
+        'scope': 'email'
+    },
+    base_url='https://www.googleapis.com/oauth2/v1/',
+    request_token_url=None,
+    access_token_method='POST',
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+)
 
-    @google.tokengetter
-    def get_google_oauth_token():
-        return session.get('google_token')
+@google.tokengetter
+def get_google_oauth_token():
+    return session.get('google_token')
 
 @app.route('/login/google')
 def google_login():
