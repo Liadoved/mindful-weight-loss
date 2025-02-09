@@ -281,8 +281,9 @@ google = oauth.remote_app(
     consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
     consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
     request_token_params={
-        'scope': ['email', 'profile', 'openid'],
-        'access_type': 'offline'
+        'scope': 'email profile openid',
+        'access_type': 'offline',
+        'include_granted_scopes': 'true'
     },
     base_url='https://www.googleapis.com/oauth2/v2/',
     request_token_url=None,
@@ -302,25 +303,40 @@ def google_login():
 @app.route('/login/google/authorized')
 def google_authorized():
     try:
+        app.logger.info("Starting Google authorization process")
+        app.logger.info(f"Request args: {request.args}")
+        
         resp = google.authorized_response()
-        if resp is None or resp.get('access_token') is None:
+        app.logger.info(f"Google response received: {resp}")
+        
+        if resp is None:
             error_reason = request.args.get('error_reason', 'unknown')
             error_description = request.args.get('error_description', 'No data received.')
+            app.logger.error(f"Authorization failed: {error_reason} - {error_description}")
             return f'Access denied: reason={error_reason} error={error_description}'
+            
+        if 'access_token' not in resp:
+            app.logger.error(f"No access token in response: {resp}")
+            return 'Access token not found in response'
         
         session['google_token'] = (resp['access_token'], '')
+        app.logger.info("Access token saved to session")
         
         try:
             me = google.get('userinfo')
-            if not me or not me.data:
+            app.logger.info(f"User info received: {me.data if me else 'None'}")
+            
+            if not me or not me.data or 'email' not in me.data:
+                app.logger.error("Failed to get valid user info")
                 return 'Failed to get user info'
             
             # בדיקה אם המשתמש כבר קיים במערכת
             user = User.query.filter_by(email=me.data['email']).first()
             
             if not user:
+                app.logger.info(f"Creating new user for email: {me.data['email']}")
                 # יצירת משתמש חדש
-                username = me.data['email'].split('@')[0]  # שימוש בחלק הראשון של האימייל כשם משתמש
+                username = me.data['email'].split('@')[0]
                 base_username = username
                 counter = 1
                 
@@ -331,22 +347,32 @@ def google_authorized():
                 
                 user = User(
                     username=username,
-                    email=me.data['email']
+                    email=me.data['email'],
+                    registration_date=datetime.now(timezone.utc)
                 )
                 db.session.add(user)
                 db.session.commit()
+                app.logger.info(f"New user created: {username}")
+            else:
+                app.logger.info(f"Existing user found: {user.username}")
             
             # התחברות המשתמש
             login_user(user)
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+            
             flash('התחברת בהצלחה!', 'success')
+            app.logger.info(f"User {user.username} logged in successfully")
             return redirect(url_for('course'))
             
         except Exception as e:
             app.logger.error(f"Error getting user info: {str(e)}")
+            app.logger.exception(e)
             return 'Failed to get user info'
             
     except Exception as e:
         app.logger.error(f"Error in google_authorized: {str(e)}")
+        app.logger.exception(e)
         return 'Error during authorization'
 
 @app.route('/')
