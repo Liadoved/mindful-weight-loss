@@ -14,6 +14,7 @@ from email.mime.multipart import MIMEMultipart
 import string
 import random
 from datetime import datetime
+import ssl
 
 # Load environment variables
 load_dotenv()
@@ -104,70 +105,87 @@ def generate_password(length=10):
     characters = string.ascii_letters + string.digits + "!@#$%^&*"
     return ''.join(random.choice(characters) for i in range(length))
 
-def send_registration_email(email, username, password, user_data=None, is_admin=False):
-    """Send registration confirmation email."""
-    sender_email = "razit.mindful@gmail.com"
-    admin_email = "razit.mindful@gmail.com"  # המייל של מנהל המערכת
-    sender_password = os.environ.get("EMAIL_PASSWORD")
-    
-    msg = MIMEMultipart()
-    msg['From'] = sender_email
-    
-    if is_admin:
-        # מייל למנהל המערכת
-        msg['To'] = admin_email
-        msg['Subject'] = "משתמש חדש נרשם לקורס!"
-        
-        body = f"""
-        משתמש חדש נרשם לקורס!
-        
-        פרטי המשתמש:
-        שם מלא: {user_data['full_name']}
-        אימייל: {user_data['email']}
-        טלפון: {user_data['phone']}
-        גיל: {user_data['age']}
-        מגדר: {user_data['gender']}
-        עיר: {user_data['city'] or 'לא צוין'}
-        כתובת: {user_data['address'] or 'לא צוין'}
-        רמת קושי: {user_data['difficulty']}
-        הערות: {user_data['comments'] or 'אין'}
-        
-        תאריך הרשמה: {user_data['registration_date'].strftime('%d/%m/%Y %H:%M')}
-        """
-    else:
-        # מייל למשתמש החדש
-        msg['To'] = email
-        msg['Subject'] = "ברוכים הבאים לקורס רזית!"
-        
-        body = f"""
-        שלום {user_data['full_name']},
-        
-        תודה שנרשמת לקורס רזית! אנחנו שמחים לראות אותך איתנו.
-        
-        פרטי ההתחברות שלך:
-        שם משתמש: {username}
-        סיסמה: {password}
-        
-        אנא שמור/י פרטים אלו במקום בטוח.
-        
-        ניתן להתחבר לאתר בכתובת:
-        https://mindful-weight-loss.onrender.com/login
-        
-        בברכה,
-        צוות רזית
-        """
-    
-    msg.attach(MIMEText(body, 'plain', 'utf-8'))
-    
+def send_registration_email(email, username, password, user_data, is_admin=False):
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
+        sender_email = "razit.mindful@gmail.com"
+        receiver_email = "razit.mindful@gmail.com" if is_admin else email
+        
+        message = MIMEMultipart('alternative')
+        message["From"] = sender_email
+        message["To"] = receiver_email
+        
+        if is_admin:
+            message["Subject"] = f"משתמש חדש נרשם לקורס: {user_data['full_name']}"
+            html_content = f"""
+            <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+                <h2 style="color: #8a5dc7; text-align: center; margin-bottom: 20px;">משתמש חדש נרשם לקורס!</h2>
+                <div style="background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <p style="margin-bottom: 15px;"><strong>שם מלא:</strong> {user_data['full_name']}</p>
+                    <p style="margin-bottom: 15px;"><strong>אימייל:</strong> {user_data['email']}</p>
+                    <p style="margin-bottom: 15px;"><strong>טלפון:</strong> {user_data['phone']}</p>
+                    <p style="margin-bottom: 15px;"><strong>גיל:</strong> {user_data['age']}</p>
+                    <p style="margin-bottom: 15px;"><strong>מגדר:</strong> {user_data['gender']}</p>
+                    <p style="margin-bottom: 15px;"><strong>עיר:</strong> {user_data['city'] or 'לא צוין'}</p>
+                    <p style="margin-bottom: 15px;"><strong>כתובת:</strong> {user_data['address'] or 'לא צוין'}</p>
+                    <p style="margin-bottom: 15px;"><strong>רמת קושי:</strong> {user_data['difficulty']}</p>
+                    <p style="margin-bottom: 15px;"><strong>הערות:</strong> {user_data['comments'] or 'אין'}</p>
+                    <p style="margin-bottom: 15px;"><strong>תאריך הרשמה:</strong> {user_data['registration_date'].strftime('%d/%m/%Y %H:%M')}</p>
+                </div>
+            </div>
+            """
+        else:
+            message["Subject"] = "ברוכים הבאים לקורס המבוא של רזית"
+            html_content = f"""
+            <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #8a5dc7; margin-bottom: 10px;">ברוכים הבאים לקורס המבוא של רזית!</h1>
+                    <p style="color: #666; font-size: 18px;">אנחנו שמחים שהצטרפת אלינו למסע</p>
+                </div>
+                
+                <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                        שלום {user_data['full_name']},
+                    </p>
+                    
+                    <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                        תודה שנרשמת לקורס המבוא שלנו! אנחנו מאמינים שתמצא/י ערך רב בתכנים שהכנו עבורך.
+                    </p>
+                    
+                    <div style="background-color: #f5f5f5; padding: 20px; border-radius: 6px; margin: 20px 0;">
+                        <h3 style="color: #8a5dc7; margin-bottom: 15px;">פרטי ההתחברות שלך:</h3>
+                        <p style="margin-bottom: 10px;"><strong>שם משתמש:</strong> {username}</p>
+                        <p style="margin-bottom: 10px;"><strong>סיסמה:</strong> {password}</p>
+                    </div>
+                    
+                    <p style="font-size: 16px; line-height: 1.6; margin: 20px 0;">
+                        מומלץ לשמור את פרטי ההתחברות במקום בטוח.
+                    </p>
+                    
+                    <div style="text-align: center; margin-top: 30px;">
+                        <a href="https://mindful-weight-loss.onrender.com/login" 
+                           style="background-color: #8a5dc7; color: white; padding: 12px 30px; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                            התחברות לקורס
+                        </a>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px; color: #666;">
+                    <p>אם יש לך שאלות, אנחנו כאן בשבילך!</p>
+                    <p>צוות רזית</p>
+                </div>
+            </div>
+            """
+        
+        message.attach(MIMEText(html_content, 'html'))
+        
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(sender_email, os.getenv('EMAIL_PASSWORD'))
+            server.send_message(message)
+            
         return True
     except Exception as e:
-        app.logger.error(f"Failed to send email: {str(e)}")
+        app.logger.error(f"Error sending email: {str(e)}")
         return False
 
 @app.route('/')
