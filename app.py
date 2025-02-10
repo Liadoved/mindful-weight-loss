@@ -88,6 +88,41 @@ class User(UserMixin, db.Model):
             return False
         return check_password_hash(self.password_hash, password)
 
+    def get_eating_type(self):
+        types = {
+            1: 'אכלנית מאוזנת',
+            2: 'אכלנית רגשית',
+            3: 'אכלנית כפייתית'
+        }
+        return types.get(self.difficulty, 'טרם סווג')
+
+    def save_quiz_answers(self, answers):
+        """שמירת תשובות השאלון"""
+        self.quiz_answers = answers
+        db.session.commit()
+
+    def get_quiz_answers(self):
+        """קבלת תשובות השאלון"""
+        return self.quiz_answers if self.quiz_answers else {}
+
+    def get_completed_videos_count(self):
+        if not self.completed_videos:
+            return 0
+        videos = [v for v in self.completed_videos.split(',') if v]
+        return len(videos)
+
+    def mark_video_completed(self, video_id):
+        completed = set(v for v in self.completed_videos.split(',') if v)
+        completed.add(str(video_id))
+        self.completed_videos = ','.join(sorted(completed))
+        # עדכון התקדמות
+        total_videos = 10  # מספר הסרטונים הכולל בקורס
+        self.progress = min(100, int((len(completed) / total_videos) * 100))
+        db.session.commit()
+
+    def get_progress(self):
+        return self.progress
+
     def to_dict(self):
         return {
             'id': self.id,
