@@ -170,6 +170,31 @@
                 white-space: nowrap;
             }
         }
+        
+        .price-management {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .price-management .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .price-management label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .price-management input {
+            width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body class="admin-page">
@@ -239,6 +264,24 @@
                                 </div>
                                 <button type="submit" class="btn btn-primary">עדכן הגדרות</button>
                             </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ניהול מחירים -->
+                <div class="col-md-12 mb-4">
+                    <div class="admin-section">
+                        <h2>ניהול מחירים</h2>
+                        <div class="price-management">
+                            <div class="form-group">
+                                <label for="originalPrice">מחיר מקורי:</label>
+                                <input type="number" id="originalPrice" class="form-control" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="discountedPrice">מחיר מבצע:</label>
+                                <input type="number" id="discountedPrice" class="form-control" step="0.01">
+                            </div>
+                            <button onclick="updatePrices()" class="btn btn-primary">עדכן מחירים</button>
                         </div>
                     </div>
                 </div>
@@ -505,6 +548,52 @@
             link.download = 'משתמשי_הקורס.csv';
             link.click();
         }
+    </script>
+
+    <script>
+        // טעינת המחירים הנוכחיים
+        async function loadPrices() {
+            try {
+                const response = await fetch('/get_prices');
+                const prices = await response.json();
+                
+                document.getElementById('originalPrice').value = prices.original;
+                document.getElementById('discountedPrice').value = prices.discounted;
+            } catch (error) {
+                console.error('Error loading prices:', error);
+            }
+        }
+
+        // עדכון מחירים
+        async function updatePrices() {
+            const originalPrice = document.getElementById('originalPrice').value;
+            const discountedPrice = document.getElementById('discountedPrice').value;
+            
+            try {
+                const response = await fetch('/update_prices', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        original: originalPrice,
+                        discounted: discountedPrice
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('המחירים עודכנו בהצלחה');
+                } else {
+                    alert('שגיאה בעדכון המחירים');
+                }
+            } catch (error) {
+                console.error('Error updating prices:', error);
+                alert('שגיאה בעדכון המחירים');
+            }
+        }
+
+        // טעינת המחירים בטעינת הדף
+        document.addEventListener('DOMContentLoaded', loadPrices);
     </script>
 </body>
 </html>

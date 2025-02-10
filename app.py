@@ -145,6 +145,20 @@ class Prices(db.Model):
     discount_price = db.Column(db.Integer, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Price(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    original_price = db.Column(db.Float, nullable=False, default=997.0)
+    discounted_price = db.Column(db.Float, nullable=False, default=497.0)
+    
+    @staticmethod
+    def get_prices():
+        price = Price.query.first()
+        if not price:
+            price = Price()
+            db.session.add(price)
+            db.session.commit()
+        return price
+
 def requires_admin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -830,47 +844,34 @@ def admin():
                          average_progress=average_progress,
                          current_price=current_price)
 
+@app.route('/get_prices')
+def get_prices():
+    price = Price.get_prices()
+    return jsonify({
+        'original': price.original_price,
+        'discounted': price.discounted_price
+    })
+
 @app.route('/update_prices', methods=['POST'])
 @login_required
 @requires_admin
 def update_prices():
     try:
-        original_price = int(request.form.get('originalPrice'))
-        discount_price = int(request.form.get('discountPrice'))
+        data = request.get_json()
+        price = Price.get_prices()
         
-        if original_price <= 0 or discount_price <= 0:
-            flash('המחירים חייבים להיות מספרים חיוביים', 'danger')
-            return redirect(url_for('admin'))
+        if 'original' in data:
+            price.original_price = float(data['original'])
+        if 'discounted' in data:
+            price.discounted_price = float(data['discounted'])
             
-        if discount_price > original_price:
-            flash('מחיר המבצע לא יכול להיות גבוה מהמחיר המקורי', 'danger')
-            return redirect(url_for('admin'))
-        
-        new_prices = Prices(
-            original_price=original_price,
-            discount_price=discount_price
-        )
-        db.session.add(new_prices)
         db.session.commit()
         
-        flash('המחירים עודכנו בהצלחה', 'success')
-    except ValueError:
-        flash('אנא הזן מספרים תקינים', 'danger')
+        return jsonify({'status': 'success'})
+        
     except Exception as e:
-        flash('אירעה שגיאה בעדכון המחירים', 'danger')
-        app.logger.error(f'שגיאה בעדכון מחירים: {str(e)}')
-    
-    return redirect(url_for('admin'))
-
-@app.route('/get_prices')
-def get_prices():
-    prices = Prices.query.order_by(Prices.updated_at.desc()).first()
-    if not prices:
-        return jsonify({'original_price': 0, 'discount_price': 0})
-    return jsonify({
-        'original_price': prices.original_price,
-        'discount_price': prices.discount_price
-    })
+        app.logger.error(f"Error updating prices: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/admin/settings', methods=['POST'])
 @login_required
