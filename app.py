@@ -186,8 +186,11 @@ class Price(db.Model):
 def requires_admin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            flash('אין לך הרשאות לצפות בדף זה', 'error')
+        if not current_user.is_authenticated:
+            flash('עליך להתחבר תחילה', 'error')
+            return redirect(url_for('login'))
+        if not current_user.is_admin:
+            flash('אין לך הרשאות מתאימות', 'error')
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated_function
@@ -385,8 +388,14 @@ def google_authorized():
             db.session.commit()
             
             login_user(user)
-            return redirect(url_for('index'))
-            
+            app.logger.info(f'התחברות מוצלחת: {me.data["email"]}')
+
+            # הפניה לדף המבוקש או לדף הבית
+            next_page = request.args.get('next')
+            if not next_page or urlparse(next_page).netloc != '':
+                next_page = url_for('admin') if user.is_admin else url_for('index')
+            return redirect(next_page)
+
         except Exception as e:
             app.logger.error('Database error: %s', str(e))
             db.session.rollback()
@@ -521,7 +530,7 @@ def login():
             # הפניה לדף המבוקש או לדף הבית
             next_page = request.args.get('next')
             if not next_page or urlparse(next_page).netloc != '':
-                next_page = url_for('index')
+                next_page = url_for('admin') if user.is_admin else url_for('index')
             return redirect(next_page)
 
         except Exception as e:
