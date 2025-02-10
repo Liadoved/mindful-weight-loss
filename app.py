@@ -889,28 +889,34 @@ def update_prices():
             discounted_price = float(discounted_price)
         except ValueError:
             return jsonify({'error': 'המחירים חייבים להיות מספרים'}), 400
-            
-        if original_price < 0 or discounted_price < 0:
+
+        # בדיקה שהמחירים חיוביים
+        if original_price <= 0 or discounted_price <= 0:
             return jsonify({'error': 'המחירים חייבים להיות חיוביים'}), 400
-            
-        if discounted_price > original_price:
-            return jsonify({'error': 'מחיר מבצע לא יכול להיות גבוה מהמחיר המקורי'}), 400
-        
+
+        # בדיקה שמחיר המבצע נמוך מהמחיר המקורי
+        if discounted_price >= original_price:
+            return jsonify({'error': 'מחיר המבצע חייב להיות נמוך מהמחיר המקורי'}), 400
+
         # עדכון המחירים
-        price = Price.get_prices()
+        price = Price.query.first()
+        if not price:
+            price = Price()
+            db.session.add(price)
+        
         price.original_price = original_price
         price.discounted_price = discounted_price
         db.session.commit()
         
         return jsonify({
             'message': 'המחירים עודכנו בהצלחה',
-            'original_price': original_price,
-            'discounted_price': discounted_price
+            'original_price': price.original_price,
+            'discounted_price': price.discounted_price
         }), 200
         
     except Exception as e:
-        db.session.rollback()
         app.logger.error(f'שגיאה בעדכון מחירים: {str(e)}')
+        db.session.rollback()
         return jsonify({'error': 'שגיאה בעדכון המחירים'}), 500
 
 @app.route('/admin/settings', methods=['POST'])
