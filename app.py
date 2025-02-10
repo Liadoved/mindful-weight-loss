@@ -1,35 +1,33 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
 from functools import wraps
 import os
-import json
-from flask_oauthlib.client import OAuth
 from dotenv import load_dotenv
-from flask_mail import Mail, Message
+import json
 import logging
 from logging.handlers import RotatingFileHandler
-import string
-import random
-import smtplib
-from email.mime.multipart import MIMEMultipart
+from flask_oauthlib.client import OAuth
 from email.mime.text import MIMEText
 import ssl
 from urllib.parse import urlparse
 import csv
 from io import StringIO
+from flask_migrate import Migrate
+from flask_mail import Mail
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'default-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///users.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 mail = Mail(app)
@@ -306,18 +304,16 @@ oauth = OAuth(app)
 
 google = oauth.remote_app(
     'google',
-    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
-    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    consumer_key=os.getenv('GOOGLE_CLIENT_ID', 'default_id'),  # פתרון זמני
+    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET', 'default_secret'),  # פתרון זמני
     request_token_params={
-        'scope': 'email profile openid',
-        'access_type': 'offline',
-        'include_granted_scopes': 'true'
+        'scope': 'email'
     },
-    base_url='https://www.googleapis.com/oauth2/v2/',
+    base_url='https://www.googleapis.com/oauth2/v1/',
     request_token_url=None,
     access_token_method='POST',
-    access_token_url='https://oauth2.googleapis.com/token',
-    authorize_url='https://accounts.google.com/o/oauth2/v2/auth'
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
 )
 
 @google.tokengetter
@@ -387,8 +383,12 @@ def google_authorized():
             # התחברות המשתמש
             login_user(user)
             user.last_login = datetime.now(timezone.utc)
-            db.session.commit()
-            
+            try:
+                db.session.commit()
+            except Exception as e:
+                app.logger.error(f'שגיאה בעדכון זמן התחברות אחרון: {str(e)}')
+                # לא נחזיר שגיאה למשתמש כי ההתחברות עצמה הצליחה
+
             flash('התחברת בהצלחה!', 'success')
             app.logger.info(f"User {user.username} logged in successfully")
             return redirect(url_for('course'))
