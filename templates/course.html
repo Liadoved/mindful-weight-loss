@@ -745,15 +745,17 @@
         }
         
         document.addEventListener('DOMContentLoaded', function() {
-            fetch('/get_prices')
-                .then(response => response.json())
+            fetch('/api/prices')
+                .then(response => {
+                    if (!response.ok) throw new Error('שגיאה בטעינת המחירים');
+                    return response.json();
+                })
                 .then(data => {
-                    // עדכון המחירים במודל
-                    document.getElementById('originalPrice').textContent = data.original + '₪';
-                    document.getElementById('discountPrice').textContent = data.discounted + '₪';
+                    document.getElementById('originalPrice').textContent = data.original_price + '₪';
+                    document.getElementById('discountPrice').textContent = data.discounted_price + '₪';
                 })
                 .catch(error => {
-                    console.error('Error loading prices:', error);
+                    console.error('Error:', error);
                     document.getElementById('originalPrice').textContent = 'שגיאה בטעינת המחיר';
                     document.getElementById('discountPrice').textContent = 'שגיאה בטעינת המחיר';
                 });

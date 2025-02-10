@@ -255,9 +255,9 @@
                         <div id="originalPriceError" class="error-text"></div>
                     </div>
                     <div class="form-group">
-                        <label for="discountedPrice">מחיר מבצע:</label>
-                        <input type="number" id="discountedPrice" min="0" step="0.01">
-                        <div id="discountedPriceError" class="error-text"></div>
+                        <label for="discountPrice">מחיר מבצע:</label>
+                        <input type="number" id="discountPrice" min="0" step="0.01">
+                        <div id="discountPriceError" class="error-text"></div>
                     </div>
                     <button onclick="updatePrices()" class="btn btn-primary" id="updatePricesBtn">עדכן מחירים</button>
                 </div>
@@ -308,7 +308,7 @@
         // ניקוי הודעות שגיאה
         function clearErrors() {
             document.getElementById('originalPriceError').textContent = '';
-            document.getElementById('discountedPriceError').textContent = '';
+            document.getElementById('discountPriceError').textContent = '';
         }
 
         // וולידציה של המחירים
@@ -322,12 +322,12 @@
             }
 
             if (!discounted || discounted <= 0) {
-                document.getElementById('discountedPriceError').textContent = 'נא להזין מחיר מבצע תקין';
+                document.getElementById('discountPriceError').textContent = 'נא להזין מחיר מבצע תקין';
                 isValid = false;
             }
 
             if (discounted > original) {
-                document.getElementById('discountedPriceError').textContent = 'מחיר המבצע חייב להיות נמוך מהמחיר המקורי';
+                document.getElementById('discountPriceError').textContent = 'מחיר המבצע חייב להיות נמוך מהמחיר המקורי';
                 isValid = false;
             }
 
@@ -337,49 +337,49 @@
         // טעינת המחירים הנוכחיים
         async function loadPrices() {
             try {
-                setLoading(true);
-                const response = await fetch('/get_prices');
+                const response = await fetch('/api/prices');
                 if (!response.ok) throw new Error('שגיאה בטעינת המחירים');
                 
-                const prices = await response.json();
-                document.getElementById('originalPrice').value = prices.original;
-                document.getElementById('discountedPrice').value = prices.discounted;
+                const data = await response.json();
+                document.getElementById('originalPrice').value = data.original_price;
+                document.getElementById('discountPrice').value = data.discounted_price;
+                
             } catch (error) {
-                console.error('Error loading prices:', error);
+                console.error('Error:', error);
                 alert('שגיאה בטעינת המחירים. נא לנסות שוב מאוחר יותר.');
-            } finally {
-                setLoading(false);
             }
         }
 
         // עדכון מחירים
         async function updatePrices() {
-            const originalPrice = parseFloat(document.getElementById('originalPrice').value);
-            const discountedPrice = parseFloat(document.getElementById('discountedPrice').value);
-            
-            if (!validatePrices(originalPrice, discountedPrice)) return;
+            const originalPrice = document.getElementById('originalPrice').value;
+            const discountPrice = document.getElementById('discountPrice').value;
+
+            if (!validatePrices(originalPrice, discountPrice)) return;
             
             try {
-                setLoading(true);
-                const response = await fetch('/update_prices', {
+                const response = await fetch('/api/prices', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        original: originalPrice,
-                        discounted: discountedPrice
+                        original_price: originalPrice,
+                        discounted_price: discountPrice
                     })
                 });
+
+                const data = await response.json();
                 
-                if (!response.ok) throw new Error('שגיאה בעדכון המחירים');
-                
+                if (!response.ok) {
+                    throw new Error(data.error || 'שגיאה בעדכון המחירים');
+                }
+
                 alert('המחירים עודכנו בהצלחה');
+                
             } catch (error) {
-                console.error('Error updating prices:', error);
+                console.error('Error:', error);
                 alert('שגיאה בעדכון המחירים. נא לנסות שוב מאוחר יותר.');
-            } finally {
-                setLoading(false);
             }
         }
 
