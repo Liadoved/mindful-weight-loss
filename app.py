@@ -17,7 +17,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import ssl
-from urllib.parse import url_parse
+from urllib.parse import urlparse
 
 # Load environment variables
 load_dotenv()
@@ -520,7 +520,7 @@ def login():
 
             # הפניה לדף המבוקש או לדף הבית
             next_page = request.args.get('next')
-            if not next_page or url_parse(next_page).netloc != '':
+            if not next_page or urlparse(next_page).netloc != '':
                 next_page = url_for('index')
             return redirect(next_page)
 
