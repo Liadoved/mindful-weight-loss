@@ -117,6 +117,9 @@ class User(UserMixin, db.Model):
         self.progress = min(100, int((len(completed) / total_videos) * 100))
         db.session.commit()
 
+    def get_progress(self):
+        return self.progress
+
 class Settings(db.Model):
     __tablename__ = 'settings'
     id = db.Column(db.Integer, primary_key=True)
