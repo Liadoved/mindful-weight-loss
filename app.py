@@ -2,14 +2,13 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from functools import wraps
 import os
 import json
 from flask_oauthlib.client import OAuth
 from dotenv import load_dotenv
 from flask_mail import Mail, Message
-from flask_migrate import Migrate
 import logging
 from logging.handlers import RotatingFileHandler
 import string
@@ -28,7 +27,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///use
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 mail = Mail(app)
@@ -65,19 +63,57 @@ app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
 
 class User(UserMixin, db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(120))  # שימוש בעמודת name בלבד
-    gender = db.Column(db.String(10))
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone('Asia/Jerusalem')))
+    password_hash = db.Column(db.String(120))
+    full_name = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    gender = db.Column(db.String(10))  # זכר/נקבה
+    registration_date = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime)
-    is_admin = db.Column(db.Boolean, default=False)
-    quiz_answers = db.Column(db.JSON)
-    difficulty = db.Column(db.Integer)
+    difficulty = db.Column(db.Integer, default=0)  # 0=לא ענה, 1=מאוזנת, 2=רגשית, 3=כפייתית
+    quiz_answers = db.Column(db.JSON, default={})  # שמירת תשובות השאלון
     completed_videos = db.Column(db.Text, default='')
-    
-    def update_last_login(self):
-        self.last_login = datetime.now(timezone('Asia/Jerusalem'))
+    progress = db.Column(db.Integer, default=0)
+    is_admin = db.Column(db.Boolean, default=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def get_eating_type(self):
+        types = {
+            1: 'אכלנית מאוזנת',
+            2: 'אכלנית רגשית',
+            3: 'אכלנית כפייתית'
+        }
+        return types.get(self.difficulty, 'טרם סווג')
+
+    def save_quiz_answers(self, answers):
+        """שמירת תשובות השאלון"""
+        self.quiz_answers = answers
+        db.session.commit()
+
+    def get_quiz_answers(self):
+        """קבלת תשובות השאלון"""
+        return self.quiz_answers if self.quiz_answers else {}
+
+    def get_completed_videos_count(self):
+        if not self.completed_videos:
+            return 0
+        return len(self.completed_videos.split(','))
+
+    def mark_video_completed(self, video_id):
+        completed = set(self.completed_videos.split(',')) if self.completed_videos else set()
+        completed.add(str(video_id))
+        self.completed_videos = ','.join(sorted(completed))
+        # עדכון התקדמות
+        total_videos = 10  # מספר הסרטונים הכולל בקורס
+        self.progress = min(100, int((len(completed) / total_videos) * 100))
         db.session.commit()
 
 class Settings(db.Model):
@@ -146,7 +182,7 @@ def send_registration_email(email, username, password, user_data, is_admin=False
         message["To"] = receiver_email
         
         if is_admin:
-            message["Subject"] = f"משתמשת חדשה נרשמה לקורס: {user_data['name']}"
+            message["Subject"] = f"משתמשת חדשה נרשמה לקורס: {user_data['full_name']}"
             html_content = f"""
             <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
                 <h2 style="color: #8a5dc7; text-align: center; margin-bottom: 20px; font-size: 24px;">משתמשת חדשה נרשמה לקורס!</h2>
@@ -154,7 +190,7 @@ def send_registration_email(email, username, password, user_data, is_admin=False
                 <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
                     <h3 style="color: #8a5dc7; margin-bottom: 20px; font-size: 20px;">פרטים אישיים</h3>
                     <div style="margin-bottom: 15px;">
-                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">שם מלא:</strong> {user_data['name']}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">שם מלא:</strong> {user_data['full_name']}</p>
                         <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">אימייל:</strong> {user_data['email']}</p>
                         <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">טלפון:</strong> {user_data['phone']}</p>
                         <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">גיל:</strong> {user_data['age']}</p>
@@ -200,7 +236,7 @@ def send_registration_email(email, username, password, user_data, is_admin=False
                 
                 <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-                        שלום {user_data['name']},
+                        שלום {user_data['full_name']},
                     </p>
                     
                     <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
@@ -353,27 +389,87 @@ def index():
 def register():
     if request.method == 'POST':
         email = request.form.get('email')
-        name = request.form.get('full_name')  # נקבל את השם מהטופס
+        full_name = request.form.get('full_name')
+        age = request.form.get('age')
         gender = request.form.get('gender')
+        phone = request.form.get('phone')
+        city = request.form.get('city')
+        address = request.form.get('address')
+        difficulty = request.form.get('difficulty')
+        comments = request.form.get('comments')
+
+        # בדיקת שדות חובה
+        required_fields = {'email': email, 'full_name': full_name, 'age': age, 
+                         'gender': gender, 'phone': phone, 'difficulty': difficulty}
         
+        missing_fields = [field for field, value in required_fields.items() if not value]
+        
+        if missing_fields:
+            app.logger.warning(f"Registration failed: Missing required fields: {', '.join(missing_fields)}")
+            flash("אנא מלא/י את כל שדות החובה")
+            return render_template('register.html')
+
+        # בדיקה אם המשתמש כבר קיים
         if User.query.filter_by(email=email).first():
-            flash('כתובת האימייל כבר קיימת במערכת')
-            return redirect(url_for('register'))
-        
-        user = User(
-            email=email,
-            name=name,  # שמירה בעמודת name
-            gender=gender,
-            created_at=datetime.now(timezone('Asia/Jerusalem')),
-            last_login=datetime.now(timezone('Asia/Jerusalem'))
-        )
-        
-        db.session.add(user)
-        db.session.commit()
-        
-        login_user(user)
-        return redirect(url_for('quiz'))
-    
+            flash("כתובת האימייל כבר רשומה במערכת")
+            return render_template('register.html')
+
+        try:
+            # משתמשים במספר הטלפון כסיסמה
+            password = phone
+            
+            # יצירת משתמש חדש
+            new_user = User(
+                username=email,  # משתמשים באימייל בתור שם משתמש
+                email=email,
+                password_hash=generate_password_hash(password),
+                full_name=full_name,
+                age=int(age),
+                gender=gender,
+                phone=phone,
+                city=city or None,
+                address=address or None,
+                difficulty=int(difficulty),
+                comments=comments or None,
+                registration_date=datetime.now(timezone.utc)  # שימוש ב-datetime במקום current_timestamp
+            )
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
+            # הכנת נתוני המשתמש לשליחה במייל
+            user_data = {
+                'full_name': full_name,
+                'email': email,
+                'phone': phone,
+                'age': age,
+                'gender': gender,
+                'city': city,
+                'address': address,
+                'difficulty': difficulty,
+                'comments': comments,
+                'registration_date': new_user.registration_date  # שימוש באובייקט שכבר נשמר
+            }
+            
+            # שליחת מייל למשתמש
+            user_email_sent = send_registration_email(email, email, password, user_data, is_admin=False)
+            
+            # שליחת מייל למנהל
+            admin_email_sent = send_registration_email(email, email, password, user_data, is_admin=True)
+            
+            if user_email_sent and admin_email_sent:
+                flash("ההרשמה הושלמה בהצלחה! שלחנו לך מייל עם פרטי ההתחברות")
+            else:
+                flash("ההרשמה הושלמה אך הייתה בעיה בשליחת המייל. אנא צור/י קשר עם התמיכה")
+            
+            return redirect(url_for('login'))
+                
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Registration error: {str(e)}")
+            flash("אירעה שגיאה בתהליך ההרשמה. אנא נסה/י שוב מאוחר יותר")
+            return render_template('register.html')
+
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -398,7 +494,8 @@ def login():
             login_user(user)
             
             # עדכון זמן התחברות אחרון
-            user.update_last_login()
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
             
             # בדיקה אם יש הפניה לדף אחר
             next_page = request.args.get('next')
@@ -422,15 +519,36 @@ def logout():
 @app.route('/course')
 @login_required
 def course():
-    # Get latest prices for the completion modal
-    prices = Prices.query.order_by(Prices.updated_at.desc()).first()
-    if not prices:
-        prices = {'original_price': 0, 'discount_price': 0}
-    
-    return render_template('course.html', 
-                         user=current_user,
-                         completed_videos=current_user.completed_videos.split(',') if current_user.completed_videos else [],
-                         prices=prices)
+    try:
+        completed_videos = []
+        if current_user.completed_videos:
+            completed_videos = current_user.completed_videos.split(',')
+            
+        app.logger.info(f"Completed videos: {completed_videos}")
+        
+        # חישוב ההתקדמות
+        progress = 0
+        if completed_videos:
+            progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
+            
+        app.logger.info(f"Progress: {progress}%")
+        
+        # קביעת הפרק הבא
+        next_chapter = 1
+        for i in range(1, 8):  # 7 chapters total
+            if str(i) not in completed_videos:
+                next_chapter = i
+                break
+        
+        app.logger.info(f"Next chapter: {next_chapter}")
+        
+        return render_template('course.html',
+                             completed_videos=completed_videos,
+                             progress=progress,
+                             next_chapter=next_chapter)
+    except Exception as e:
+        app.logger.error(f"Error in course route: {str(e)}")
+        return render_template('course.html', completed_videos=[], progress=0, next_chapter=1)
 
 @app.route('/mark_complete/<video_id>', methods=['POST'])
 @login_required
@@ -486,7 +604,7 @@ def mark_complete(video_id):
 @login_required
 def update_progress():
     data = request.get_json()
-    current_user.completed_videos = ','.join(data['completed_videos'])
+    current_user.completed_videos = ','.join(map(str, data['completed_videos']))
     current_user.progress = len(data['completed_videos']) / TOTAL_ITEMS * 100
     db.session.commit()
     return jsonify({'status': 'success'})
@@ -495,7 +613,10 @@ def update_progress():
 @login_required
 def get_progress():
     try:
-        completed_videos = current_user.completed_videos.split(',') if current_user.completed_videos else []
+        completed_videos = []
+        if current_user.completed_videos and current_user.completed_videos.strip():
+            completed_videos = current_user.completed_videos.split(',')
+            
         progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
         
         return jsonify({
@@ -539,7 +660,7 @@ def quiz():
             answers = request.form.to_dict()
             app.logger.info(f"תשובות שהתקבלו: {answers}")
             
-            current_user.quiz_answers = answers
+            current_user.save_quiz_answers(answers)
             app.logger.info("תשובות נשמרו בהצלחה")
             
             # חישוב התוצאה
@@ -567,7 +688,7 @@ def quiz():
             return redirect(url_for('quiz'))
     
     # אם יש תשובות קודמות, נציג אותן
-    saved_answers = current_user.quiz_answers
+    saved_answers = current_user.get_quiz_answers()
     return render_template('quiz.html', saved_answers=saved_answers)
 
 @app.route('/submit_quiz', methods=['POST'])
@@ -581,7 +702,7 @@ def submit_quiz():
             return jsonify({'error': 'לא התקבלו נתונים'}), 400
             
         # שמירת התשובות
-        current_user.quiz_answers = data
+        current_user.save_quiz_answers(data)
         
         # חישוב סוג האכילה
         scores = {
@@ -612,7 +733,7 @@ def quiz_results():
         return redirect(url_for('quiz'))
     return render_template('quiz_results.html', 
                          eating_type=current_user.get_eating_type(),
-                         answers=current_user.quiz_answers)
+                         answers=current_user.get_quiz_answers())
 
 @app.route('/test-email')
 def test_email():
@@ -639,7 +760,7 @@ def setup_database():
             username='admin',
             email='admin@razit.co.il',
             password_hash=generate_password_hash('Aa123456!'),
-            name='מנהל המערכת',
+            full_name='מנהל המערכת',
             age=30,
             gender='other',
             address='',
@@ -662,33 +783,51 @@ def setup_database():
 @login_required
 @requires_admin
 def admin():
-    users = User.query.filter_by(is_admin=False).all()
     prices = Prices.query.order_by(Prices.updated_at.desc()).first()
+    users = User.query.filter_by(is_admin=False).all()
     
     # חישוב סטטיסטיקות
     total_users = len(users)
-    female_users = sum(1 for user in users if user.gender == 'female')
-    male_users = sum(1 for user in users if user.gender == 'male')
+    female_users = len([u for u in users if u.gender == 'נקבה'])
+    male_users = len([u for u in users if u.gender == 'זכר'])
     
-    # משתמשים פעילים - התחברו ב-30 הימים האחרונים
-    thirty_days_ago = datetime.now(timezone('Asia/Jerusalem')) - timedelta(days=30)
-    active_users = sum(1 for user in users if user.last_login and user.last_login > thirty_days_ago)
+    female_percentage = round((female_users / total_users * 100) if total_users > 0 else 0)
+    male_percentage = round((male_users / total_users * 100) if total_users > 0 else 0)
     
-    # משתמשים שסיימו את הקורס
-    completed_users = sum(1 for user in users if user.completed_videos and len(user.completed_videos.split(',')) >= 10)
+    # סטטיסטיקות אכלניות
+    users_with_type = [u for u in users if u.difficulty != 0]
+    total_typed = len(users_with_type) if len(users_with_type) > 0 else 1
     
-    # חישוב התקדמות ממוצעת
-    total_progress = sum(len(user.completed_videos.split(',')) if user.completed_videos else 0 for user in users)
-    average_progress = round((total_progress / (total_users * 10)) * 100) if total_users > 0 else 0
+    balanced_eaters = len([u for u in users if u.difficulty == 1])
+    emotional_eaters = len([u for u in users if u.difficulty == 2])
+    compulsive_eaters = len([u for u in users if u.difficulty == 3])
+    
+    balanced_percentage = round((balanced_eaters / total_typed * 100))
+    emotional_percentage = round((emotional_eaters / total_typed * 100))
+    compulsive_percentage = round((compulsive_eaters / total_typed * 100))
+    
+    # ממוצע התקדמות
+    average_progress = round(sum(u.progress for u in users) / total_users if total_users > 0 else 0)
+    
+    # מחיר נוכחי
+    current_price = Settings.get_course_price()
     
     return render_template('admin.html',
                          prices=prices,
+                         users=users,
                          total_users=total_users,
                          female_users=female_users,
                          male_users=male_users,
-                         active_users=active_users,
-                         completed_users=completed_users,
-                         average_progress=average_progress)
+                         female_percentage=female_percentage,
+                         male_percentage=male_percentage,
+                         balanced_eaters=balanced_eaters,
+                         emotional_eaters=emotional_eaters,
+                         compulsive_eaters=compulsive_eaters,
+                         balanced_percentage=balanced_percentage,
+                         emotional_percentage=emotional_percentage,
+                         compulsive_percentage=compulsive_percentage,
+                         average_progress=average_progress,
+                         current_price=current_price)
 
 @app.route('/update_prices', methods=['POST'])
 @login_required
@@ -760,7 +899,7 @@ def initialize_database():
     global _is_db_initialized
     if not _is_db_initialized:
         with app.app_context():
-            # יצירת הטבלאות
+            # יצירת הטבלאות אם הן לא קיימות
             db.create_all()
             
             # בדיקה אם העמודה quiz_answers קיימת

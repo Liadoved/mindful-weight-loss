@@ -3,143 +3,508 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ניהול - אורית כהן</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>ניהול משתמשים - רזית</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body {
-            background-color: #f8f9fa;
-            padding: 20px;
-        }
         .admin-container {
-            max-width: 800px;
+            padding: 20px;
+            max-width: 1200px;
             margin: 0 auto;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
             background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
         }
-        .form-group {
-            margin-bottom: 20px;
+
+        .users-table th,
+        .users-table td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid #eee;
         }
-        .price-inputs {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-        .price-input {
-            flex: 1;
-        }
-        .btn-save {
+
+        .users-table th {
             background-color: #8a5dc7;
             color: white;
-            border: none;
+            font-weight: 500;
+        }
+
+        .users-table tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #8a5dc7;
+            transition: width 0.3s ease;
+        }
+
+        .search-box {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .export-button {
+            background-color: #4CAF50;
+            color: white;
             padding: 10px 20px;
-            border-radius: 5px;
+            border: none;
+            border-radius: 4px;
             cursor: pointer;
+            font-size: 16px;
         }
-        .btn-save:hover {
-            background-color: #7a4db7;
+
+        .export-button:hover {
+            background-color: #45a049;
         }
-        .alert {
-            margin-top: 20px;
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
         }
-        .stats-container {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #dee2e6;
+        
+        .table {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
+        
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
         }
+        
+        .badge {
+            padding: 0.5em 1em;
+        }
+        
+        .btn-warning {
+            color: white;
+            background-color: #ffc107;
+        }
+        
+        .btn-warning:hover {
+            background-color: #ffb300;
+            color: white;
+        }
+
+        .progress {
+            border-radius: 10px;
+            background-color: #f0f0f0;
+        }
+
+        .progress-bar {
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .card {
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
         .stat-card {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
             text-align: center;
         }
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #8a5dc7;
-        }
-        .stat-label {
+        
+        .stat-card h6 {
             color: #6c757d;
-            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card h3 {
+            color: #8a5dc7;
+            margin: 0;
+        }
+        
+        .progress {
+            height: 20px;
+        }
+        
+        .progress-bar {
+            background-color: #8a5dc7;
+        }
+        
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 1rem;
+                white-space: nowrap;
+            }
         }
     </style>
 </head>
-<body>
-    <div class="admin-container">
-        <h2 class="mb-4">הגדרות מערכת</h2>
-        
-        <form id="priceForm" method="POST" action="{{ url_for('update_prices') }}">
-            <div class="form-group">
-                <h4>מחירי קורס המשך</h4>
-                <div class="price-inputs">
-                    <div class="price-input">
-                        <label for="originalPrice">מחיר מקורי</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="originalPrice" name="originalPrice" 
-                                   value="{{ prices.original_price if prices else '' }}" required>
-                            <span class="input-group-text">₪</span>
-                        </div>
-                    </div>
-                    <div class="price-input">
-                        <label for="discountPrice">מחיר מבצע</label>
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="discountPrice" name="discountPrice" 
-                                   value="{{ prices.discount_price if prices else '' }}" required>
-                            <span class="input-group-text">₪</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <button type="submit" class="btn-save">שמור שינויים</button>
-        </form>
+<body class="admin-page">
+    {% include 'navbar.html' %}
 
-        <div class="stats-container">
-            <h3>סטטיסטיקות</h3>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value">{{ total_users }}</div>
-                    <div class="stat-label">סה"כ משתמשים</div>
+    <div class="admin-container">
+        <h1>ניהול משתמשים</h1>
+        
+        <div class="container-fluid mt-4">
+            <div class="row">
+                <!-- סטטיסטיקות -->
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">סטטיסטיקות כלליות</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <h6>סה"כ משתמשים</h6>
+                                        <h3>{{ total_users }}</h3>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <h6>התפלגות מגדרית</h6>
+                                        <p>נשים: {{ female_users }} ({{ female_percentage }}%)</p>
+                                        <p>גברים: {{ male_users }} ({{ male_percentage }}%)</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <h6>התפלגות סיווג אכלניות</h6>
+                                        <p>מאוזנות: {{ balanced_eaters }} ({{ balanced_percentage }}%)</p>
+                                        <p>רגשיות: {{ emotional_eaters }} ({{ emotional_percentage }}%)</p>
+                                        <p>כפייתיות: {{ compulsive_eaters }} ({{ compulsive_percentage }}%)</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <h6>ממוצע התקדמות</h6>
+                                        <h3>{{ average_progress }}%</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value">{{ female_users }}</div>
-                    <div class="stat-label">נשים</div>
+
+                <!-- הגדרות -->
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">הגדרות</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="{{ url_for('update_settings') }}">
+                                <div class="form-group">
+                                    <label for="course_price">מחיר הקורס</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="course_price" name="course_price" value="{{ current_price }}" required>
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">₪</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">עדכן הגדרות</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value">{{ male_users }}</div>
-                    <div class="stat-label">גברים</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">{{ active_users }}</div>
-                    <div class="stat-label">משתמשים פעילים</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">{{ completed_users }}</div>
-                    <div class="stat-label">סיימו את הקורס</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">{{ average_progress }}%</div>
-                    <div class="stat-label">התקדמות ממוצעת</div>
+
+                <!-- טבלת משתמשים -->
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">רשימת משתמשים</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>שם מלא</th>
+                                            <th>אימייל</th>
+                                            <th>טלפון</th>
+                                            <th>מגדר</th>
+                                            <th>תאריך הרשמה</th>
+                                            <th>התחברות אחרונה</th>
+                                            <th>סיווג אכלנית</th>
+                                            <th>התקדמות</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in users %}
+                                        <tr>
+                                            <td>{{ user.full_name }}</td>
+                                            <td>{{ user.email }}</td>
+                                            <td>{{ user.phone }}</td>
+                                            <td>{{ user.gender }}</td>
+                                            <td>{{ user.registration_date.strftime('%d/%m/%Y %H:%M') }}</td>
+                                            <td>{{ user.last_login.strftime('%d/%m/%Y %H:%M') if user.last_login else 'טרם התחבר/ה' }}</td>
+                                            <td>
+                                                {% if user.difficulty != 0 %}
+                                                    {{ user.get_eating_type() }}
+                                                {% else %}
+                                                    טרם ביצעה אבחון
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="progress">
+                                                    <div class="progress-bar" role="progressbar" style="width: {{ user.progress }}%" aria-valuenow="{{ user.progress }}" aria-valuemin="0" aria-valuemax="100">{{ user.progress }}%</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="חיפוש משתמשים...">
+            <button class="export-button" onclick="exportToExcel()">
+                <i class="fas fa-file-excel"></i>
+                ייצוא לאקסל
+            </button>
+        </div>
+
+        <div class="container">
+            <h1 class="text-center mb-4">ניהול משתמשים</h1>
+            
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>שם מלא</th>
+                            <th>אימייל</th>
+                            <th>טלפון</th>
+                            <th>התקדמות</th>
+                            <th>סיווג אכלנית</th>
+                            <th>תאריך הרשמה</th>
+                            <th>התחברות אחרונה</th>
+                            <th>מנהל</th>
+                            <th>פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.full_name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.phone }}</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-success" 
+                                         role="progressbar" 
+                                         style="width: {{ user.progress }}%;" 
+                                         aria-valuenow="{{ user.progress }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        {{ user.progress }}%
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    {{ user.completed_videos.split(',') | length if user.completed_videos else 0 }} שיעורים הושלמו
+                                </small>
+                            </td>
+                            <td>
+                                {% if user.difficulty != 0 %}
+                                    {{ user.get_eating_type() }}
+                                {% else %}
+                                    טרם ביצעה אבחון
+                                {% endif %}
+                            </td>
+                            <td>{{ user.registration_date.strftime('%Y-%m-%d %H:%M') if user.registration_date else 'לא ידוע' }}</td>
+                            <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'לא ידוע' }}</td>
+                            <td>
+                                {% if user.is_admin %}
+                                    <span class="badge bg-success">כן</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">לא</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not user.is_admin %}
+                                    <a href="{{ url_for('make_admin', user_id=user.id) }}" class="btn btn-warning btn-sm">
+                                        הפוך למנהל
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- תרשים סטטיסטי -->
+            <div class="row mt-5">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">התפלגות סיווג אכלניות</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="eatingTypeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">התקדמות ממוצעת בקורס</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="progressChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // נתונים לתרשים סיווג אכלניות
+        const eatingTypeData = {
+            labels: ['אכלנית מאוזנת', 'אכלנית רגשית', 'אכלנית כפייתית', 'טרם סווג'],
+            datasets: [{
+                data: [
+                    {{ users | selectattr('difficulty', 'eq', 1) | list | length }},
+                    {{ users | selectattr('difficulty', 'eq', 2) | list | length }},
+                    {{ users | selectattr('difficulty', 'eq', 3) | list | length }},
+                    {{ users | selectattr('difficulty', 'eq', 0) | list | length }}
+                ],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6c757d']
+            }]
+        };
+
+        // נתונים לתרשים התקדמות
+        const progressData = {
+            labels: ['0-25%', '26-50%', '51-75%', '76-100%'],
+            datasets: [{
+                label: 'מספר משתמשים',
+                data: [
+                    {{ users | selectattr('progress', 'le', 25) | list | length }},
+                    {{ users | selectattr('progress', 'gt', 25) | selectattr('progress', 'le', 50) | list | length }},
+                    {{ users | selectattr('progress', 'gt', 50) | selectattr('progress', 'le', 75) | list | length }},
+                    {{ users | selectattr('progress', 'gt', 75) | list | length }}
+                ],
+                backgroundColor: '#8a5dc7'
+            }]
+        };
+
+        // יצירת תרשים סיווג אכלניות
+        new Chart(document.getElementById('eatingTypeChart'), {
+            type: 'pie',
+            data: eatingTypeData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // יצירת תרשים התקדמות
+        new Chart(document.getElementById('progressChart'), {
+            type: 'bar',
+            data: progressData,
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    });
+    </script>
+
+    <script>
+        // חיפוש משתמשים
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchText = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('.users-table tbody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchText) ? '' : 'none';
+            });
+        });
+
+        // ייצוא לאקסל
+        function exportToExcel() {
+            let csv = 'שם מלא,אימייל,התקדמות בקורס,תאריך הרשמה,כניסה אחרונה,טלפון,עיר\n';
+            
+            const rows = document.querySelectorAll('.users-table tbody tr');
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const cells = row.querySelectorAll('td');
+                    const rowData = Array.from(cells).map(cell => {
+                        // מנקה את הטקסט מתגיות HTML ומסדר אותו לפורמט CSV
+                        let text = cell.textContent.trim();
+                        // אם יש פסיק בטקסט, עוטף את התא במרכאות
+                        return text.includes(',') ? `"${text}"` : text;
+                    });
+                    csv += rowData.join(',') + '\n';
+                }
+            });
+
+            // יצירת קובץ CSV והורדתו
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'משתמשי_הקורס.csv';
+            link.click();
+        }
+    </script>
 </body>
 </html>

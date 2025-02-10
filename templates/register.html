@@ -13,33 +13,31 @@
             {% endif %}
         {% endwith %}
         
-        <form method="POST" action="{{ url_for('register') }}" class="registration-form">
+        <form method="POST" class="registration-form">
             <div class="form-group">
-                <label for="full_name">שם מלא</label>
+                <label for="email">אימייל *</label>
+                <input type="email" class="form-control" id="email" name="email" required>
+                <small class="form-text text-muted">האימייל ישמש כשם המשתמש שלך</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="full_name">שם מלא *</label>
                 <input type="text" class="form-control" id="full_name" name="full_name" required>
             </div>
-            <div class="form-group">
-                <label for="email">אימייל</label>
-                <input type="email" class="form-control" id="email" name="email" required>
-            </div>
-            <div class="form-group">
-                <label>מגדר</label>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="gender" id="female" value="female" required>
-                    <label class="form-check-label" for="female">
-                        אישה
-                    </label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="gender" id="male" value="male">
-                    <label class="form-check-label" for="male">
-                        גבר
-                    </label>
-                </div>
-            </div>
+            
             <div class="form-group">
                 <label for="age">גיל *</label>
                 <input type="number" class="form-control" id="age" name="age" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="gender">מגדר *</label>
+                <select class="form-control" id="gender" name="gender" required>
+                    <option value="">בחרי...</option>
+                    <option value="female">נקבה</option>
+                    <option value="male">זכר</option>
+                    <option value="other">אחר</option>
+                </select>
             </div>
             
             <div class="form-group">
