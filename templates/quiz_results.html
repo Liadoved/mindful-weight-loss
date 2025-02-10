@@ -1,179 +1,180 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="results-container">
-    <h1>תוצאות השאלון</h1>
+<div class="container quiz-results">
+    <h2>תוצאות השאלון</h2>
     
-    <div class="results-content">
-        <div class="score-explanation">
-            <p>הציונים נעים בין 6 ל-30 נקודות לכל סגנון אכילה.</p>
-            <p>ככל שהציון גבוה יותר, כך הנטייה לסגנון האכילה חזקה יותר.</p>
+    <div class="results-container">
+        <div class="eating-types">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>סוג אכלנית</th>
+                        <th>ניקוד</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr {% if emotional_score > compulsive_score %}class="primary-type"{% endif %}>
+                        <td>אכלנית רגשית</td>
+                        <td>{{ emotional_score }}</td>
+                        <td>{% if emotional_score > compulsive_score %}<span class="badge">סוג עיקרי</span>{% endif %}</td>
+                    </tr>
+                    <tr {% if compulsive_score > emotional_score %}class="primary-type"{% endif %}>
+                        <td>אכלנית כפייתית</td>
+                        <td>{{ compulsive_score }}</td>
+                        <td>{% if compulsive_score > emotional_score %}<span class="badge">סוג עיקרי</span>{% endif %}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-        <div id="resultsTable"></div>
-        <div id="primaryStyle" class="style-result"></div>
-        <div id="secondaryStyle" class="style-result"></div>
-    </div>
 
-    <div class="navigation-buttons">
-        <a href="/course" class="button next-button">המשך לקורס</a>
-        <a href="/quiz" class="button retry-button">חזור לשאלון</a>
-    </div>
+        <div class="type-explanation">
+            <h3>הסבר על הניקוד שלך</h3>
+            {% if emotional_score > compulsive_score %}
+                <p>התוצאות מראות שאת בעיקר <strong>אכלנית רגשית</strong>.</p>
+                <p>אכלנית רגשית היא מי שאוכלת בתגובה לרגשות ומצבי רוח. האכילה משמשת כמנגנון התמודדות עם רגשות כמו עצב, חרדה, בדידות או שעמום.</p>
+                <div class="characteristics">
+                    <h4>מאפיינים נפוצים:</h4>
+                    <ul>
+                        <li>אכילה בתגובה למצבי רוח ורגשות</li>
+                        <li>קושי להבחין בין רעב פיזי לרגשי</li>
+                        <li>נטייה לאכול כשעצובים או מוטרדים</li>
+                        <li>שימוש באוכל כנחמה</li>
+                    </ul>
+                </div>
+            {% elif compulsive_score > emotional_score %}
+                <p>התוצאות מראות שאת בעיקר <strong>אכלנית כפייתית</strong>.</p>
+                <p>אכלנית כפייתית היא מי שמרגישה חוסר שליטה באכילה ונוטה לאכול כמויות גדולות של אוכל בפרק זמן קצר.</p>
+                <div class="characteristics">
+                    <h4>מאפיינים נפוצים:</h4>
+                    <ul>
+                        <li>תחושת אובדן שליטה באכילה</li>
+                        <li>אכילה מהירה של כמויות גדולות</li>
+                        <li>אכילה עד לתחושת אי נוחות פיזית</li>
+                        <li>אכילה לבד מתוך בושה</li>
+                    </ul>
+                </div>
+            {% else %}
+                <p>התוצאות שלך מאוזנות, מה שמראה שאת <strong>אכלנית מאוזנת</strong>.</p>
+                <p>זה אומר שאת מתמודדת עם שני הסוגים של דפוסי האכילה במידה דומה.</p>
+                <div class="characteristics">
+                    <h4>מאפיינים נפוצים:</h4>
+                    <ul>
+                        <li>שילוב של אכילה רגשית וכפייתית</li>
+                        <li>יכולת להתמודד עם שני סוגי האתגרים</li>
+                        <li>גמישות בהתמודדות עם אכילה</li>
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
 
-    <div class="text-center mt-4">
-        <p class="mb-4">פרק 5 נפתח עבורך! תוכלי להתחיל לצפות בו כשתחזרי לקורס.</p>
-        <a href="{{ url_for('course') }}" class="btn btn-primary">חזרה לקורס</a>
+        <div class="next-steps">
+            <h3>מה הלאה?</h3>
+            <p>הבנת סוג האכלנית שלך היא צעד חשוב בדרך לשינוי. בקורס תלמדי כלים מותאמים אישית להתמודדות עם דפוסי האכילה שלך.</p>
+            <a href="{{ url_for('course') }}" class="btn btn-primary">המשיכי לקורס</a>
+        </div>
     </div>
 </div>
 
 <style>
-    .results-container {
+    .quiz-results {
         max-width: 800px;
-        margin: 0 auto;
+        margin: 40px auto;
         padding: 20px;
-        text-align: center;
     }
 
-    .results-content {
-        background-color: white;
+    .results-container {
+        background: white;
         padding: 30px;
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin: 20px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    table {
+    .eating-types {
+        margin-bottom: 40px;
+    }
+
+    .table {
         width: 100%;
-        border-collapse: collapse;
-        margin: 20px 0;
-        direction: rtl;
+        margin-bottom: 0;
     }
 
-    th, td {
-        padding: 15px;
-        text-align: right;
-        border: 1px solid #ddd;
-    }
-
-    th {
+    .table th {
         background-color: #f8f9fa;
-        font-weight: bold;
+        border-bottom: 2px solid #dee2e6;
+        padding: 12px;
     }
 
-    tr.highest-score {
-        background-color: #e8f5e9;
+    .table td {
+        padding: 12px;
+        vertical-align: middle;
     }
 
-    .style-result {
-        margin: 15px 0;
-        font-size: 1.2em;
+    .primary-type {
+        background-color: #f0f7ff;
+    }
+
+    .badge {
+        background-color: #8a5dc7;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 0.8em;
+    }
+
+    .type-explanation {
+        margin: 40px 0;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .characteristics {
+        margin-top: 20px;
+    }
+
+    .characteristics ul {
+        padding-right: 20px;
+    }
+
+    .characteristics li {
+        margin-bottom: 10px;
+        color: #666;
+    }
+
+    .next-steps {
         text-align: center;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #dee2e6;
     }
 
-    #primaryStyle {
-        color: #2196F3;
-        font-weight: bold;
+    .btn-primary {
+        background-color: #8a5dc7;
+        border-color: #8a5dc7;
+        padding: 10px 30px;
+        font-size: 1.1em;
+        margin-top: 20px;
     }
 
-    #secondaryStyle {
-        color: #4CAF50;
+    .btn-primary:hover {
+        background-color: #7a4db7;
+        border-color: #7a4db7;
     }
 
-    .navigation-buttons {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-        margin-top: 30px;
-    }
+    @media (max-width: 768px) {
+        .quiz-results {
+            padding: 10px;
+        }
 
-    .button {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 1em;
-        text-decoration: none;
-        transition: all 0.3s ease;
-    }
+        .results-container {
+            padding: 15px;
+        }
 
-    .next-button {
-        background-color: #4CAF50;
-        color: white;
-    }
-
-    .retry-button {
-        background-color: #2196F3;
-        color: white;
-    }
-
-    .button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
-    .next-button:hover {
-        background-color: #45a049;
-    }
-
-    .retry-button:hover {
-        background-color: #1976D2;
+        .table th, .table td {
+            padding: 8px;
+        }
     }
 </style>
-
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const savedResults = localStorage.getItem('quizResults');
-        if (!savedResults) {
-            window.location.href = '/quiz';
-            return;
-        }
-
-        const results = JSON.parse(savedResults);
-        const styles = {
-            'a': 'אכילה רגשית',
-            'b': 'אכילת יתר',
-            'c': 'אכילה חברתית',
-            'd': 'אכילה אובססיבית',
-            'e': 'אכילה לא מודעת',
-            'f': 'אכילה נוקשה'
-        };
-
-        // יצירת טבלת תוצאות
-        let tableHTML = `
-            <table>
-                <tr>
-                    <th>סגנון אכילה</th>
-                    <th>ציון (6-30)</th>
-                </tr>
-        `;
-
-        // מציאת הציון הגבוה ביותר
-        const maxScore = Math.max(...Object.values(results));
-
-        // יצירת שורות הטבלה
-        Object.entries(results).forEach(([type, score]) => {
-            const isHighest = score === maxScore;
-            tableHTML += `
-                <tr class="${isHighest ? 'highest-score' : ''}">
-                    <td>${styles[type]}</td>
-                    <td>${score}</td>
-                </tr>
-            `;
-        });
-        tableHTML += '</table>';
-        
-        document.getElementById('resultsTable').innerHTML = tableHTML;
-
-        // מציאת סגנון האכילה העיקרי והמשני
-        const sortedScores = Object.entries(results)
-            .sort((a, b) => b[1] - a[1]);
-
-        document.getElementById('primaryStyle').textContent = 
-            `סגנון האכילה העיקרי שלך הוא: ${styles[sortedScores[0][0]]} (${sortedScores[0][1]} נקודות)`;
-
-        if (sortedScores[1][1] >= sortedScores[0][1] - 2) {
-            document.getElementById('secondaryStyle').textContent = 
-                `יש לך גם נטייה משמעותית לסגנון: ${styles[sortedScores[1][0]]} (${sortedScores[1][1]} נקודות)`;
-        }
-    });
-</script>
 {% endblock %}
