@@ -71,63 +71,46 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     full_name = db.Column(db.String(120))
     phone = db.Column(db.String(20))
-    gender = db.Column(db.String(10))  # זכר/נקבה
-    registration_date = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    last_login = db.Column(db.DateTime)
-    difficulty = db.Column(db.Integer, default=0)  # 0=לא ענה, 1=מאוזנת, 2=רגשית, 3=כפייתית
-    quiz_answers = db.Column(db.JSON, default={})  # שמירת תשובות השאלון
+    gender = db.Column(db.String(10))
+    registration_date = db.Column(db.DateTime(timezone=True))
+    last_login = db.Column(db.DateTime(timezone=True))
+    difficulty = db.Column(db.Integer, default=0)
+    quiz_answers = db.Column(db.JSON, default=lambda: {})
     completed_videos = db.Column(db.Text, default='')
     progress = db.Column(db.Integer, default=0)
-    course_completed = db.Column(db.Boolean, default=False)
-    clicked_whatsapp = db.Column(db.Boolean, default=False)
     is_admin = db.Column(db.Boolean, default=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
+        if not self.password_hash:
+            return False
         return check_password_hash(self.password_hash, password)
 
-    def get_eating_type(self):
-        types = {
-            1: 'אכלנית מאוזנת',
-            2: 'אכלנית רגשית',
-            3: 'אכלנית כפייתית'
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'full_name': self.full_name,
+            'phone': self.phone,
+            'gender': self.gender,
+            'registration_date': self.registration_date.isoformat() if self.registration_date else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'difficulty': self.difficulty,
+            'quiz_answers': self.quiz_answers,
+            'completed_videos': self.completed_videos,
+            'progress': self.progress,
+            'is_admin': self.is_admin
         }
-        return types.get(self.difficulty, 'טרם סווג')
-
-    def save_quiz_answers(self, answers):
-        """שמירת תשובות השאלון"""
-        self.quiz_answers = answers
-        db.session.commit()
-
-    def get_quiz_answers(self):
-        """קבלת תשובות השאלון"""
-        return self.quiz_answers if self.quiz_answers else {}
-
-    def get_completed_videos_count(self):
-        if not self.completed_videos:
-            return 0
-        return len(self.completed_videos.split(','))
-
-    def mark_video_completed(self, video_id):
-        completed = set(self.completed_videos.split(',')) if self.completed_videos else set()
-        completed.add(str(video_id))
-        self.completed_videos = ','.join(sorted(completed))
-        # עדכון התקדמות
-        total_videos = 10  # מספר הסרטונים הכולל בקורס
-        self.progress = min(100, int((len(completed) / total_videos) * 100))
-        db.session.commit()
-
-    def get_progress(self):
-        return self.progress
 
 class Settings(db.Model):
     __tablename__ = 'settings'
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
     value = db.Column(db.String(500), nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime(timezone=True))
 
     @staticmethod
     def get_course_price():
@@ -149,7 +132,7 @@ class Prices(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     original_price = db.Column(db.Integer, nullable=False)
     discount_price = db.Column(db.Integer, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True))
 
 class Price(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -350,29 +333,29 @@ def google_authorized():
         
         try:
             user = User.query.filter_by(email=me.data['email']).first()
-        except Exception as e:
-            app.logger.error('Error getting user info: %s', str(e))
-            # אם העמודות החדשות לא קיימות, ננסה ליצור משתמש חדש בלעדיהן
-            user = None
-
-        if user is None:
-            # יצירת משתמש חדש
-            try:
+            if user is None:
+                # יצירת משתמש חדש
+                username = me.data['email'].split('@')[0]
                 user = User(
-                    username=me.data['email'].split('@')[0],
+                    username=username,
                     email=me.data['email'],
-                    password_hash='',  # No password for OAuth users
-                    is_admin=False
+                    registration_date=datetime.now(timezone.utc)
                 )
                 db.session.add(user)
                 db.session.commit()
                 app.logger.info('Created new user: %s', user.email)
-            except Exception as e:
-                app.logger.error('Error creating new user: %s', str(e))
-                return 'Error creating user account'
 
-        login_user(user)
-        return redirect(url_for('index'))
+            # עדכון זמן התחברות אחרון
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+            
+            login_user(user)
+            return redirect(url_for('index'))
+            
+        except Exception as e:
+            app.logger.error('Database error: %s', str(e))
+            db.session.rollback()
+            return 'Error accessing database'
 
     except Exception as e:
         app.logger.error('Error in google_authorized: %s', str(e))
