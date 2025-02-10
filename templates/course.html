@@ -748,10 +748,15 @@
             fetch('/get_prices')
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('originalPrice').textContent = data.original_price + ' ₪';
-                    document.getElementById('discountPrice').textContent = data.discount_price + ' ₪';
+                    // עדכון המחירים במודל
+                    document.getElementById('originalPrice').textContent = data.original + '₪';
+                    document.getElementById('discountPrice').textContent = data.discounted + '₪';
                 })
-                .catch(error => console.error('Error loading prices:', error));
+                .catch(error => {
+                    console.error('Error loading prices:', error);
+                    document.getElementById('originalPrice').textContent = 'שגיאה בטעינת המחיר';
+                    document.getElementById('discountPrice').textContent = 'שגיאה בטעינת המחיר';
+                });
         });
     </script>
 </body>
