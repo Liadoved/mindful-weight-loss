@@ -9,6 +9,7 @@ import json
 from flask_oauthlib.client import OAuth
 from dotenv import load_dotenv
 from flask_mail import Mail, Message
+from flask_migrate import Migrate
 import logging
 from logging.handlers import RotatingFileHandler
 import string
@@ -27,6 +28,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///use
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 mail = Mail(app)
