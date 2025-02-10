@@ -327,81 +327,56 @@ def google_login():
 @app.route('/login/google/authorized')
 def google_authorized():
     try:
-        app.logger.info("Starting Google authorization process")
-        app.logger.info(f"Request args: {request.args}")
-        
         resp = google.authorized_response()
-        app.logger.info(f"Google response received: {resp}")
+        if resp is None or resp.get('access_token') is None:
+            app.logger.error('Access denied: reason=%s error=%s', 
+                request.args.get('error_reason'),
+                request.args.get('error_description'))
+            return 'Access denied: reason={} error={}'.format(
+                request.args.get('error_reason'),
+                request.args.get('error_description')
+            )
         
-        if resp is None:
-            error_reason = request.args.get('error_reason', 'unknown')
-            error_description = request.args.get('error_description', 'No data received.')
-            app.logger.error(f"Authorization failed: {error_reason} - {error_description}")
-            return f'Access denied: reason={error_reason} error={error_description}'
-            
-        if 'access_token' not in resp:
-            app.logger.error(f"No access token in response: {resp}")
-            return 'Access token not found in response'
-        
+        app.logger.info('Google response received: %s', resp)
         session['google_token'] = (resp['access_token'], '')
-        app.logger.info("Access token saved to session")
+        app.logger.info('Access token saved to session')
+        
+        me = google.get('userinfo')
+        if me.data is None:
+            app.logger.error('Failed to get user info from Google')
+            return 'Failed to get user info'
+        
+        app.logger.info('User info received: %s', me.data)
         
         try:
-            me = google.get('userinfo')
-            app.logger.info(f"User info received: {me.data if me else 'None'}")
-            
-            if not me or not me.data or 'email' not in me.data:
-                app.logger.error("Failed to get valid user info")
-                return 'Failed to get user info'
-            
-            # בדיקה אם המשתמש כבר קיים במערכת
             user = User.query.filter_by(email=me.data['email']).first()
-            
-            if not user:
-                app.logger.info(f"Creating new user for email: {me.data['email']}")
-                # יצירת משתמש חדש
-                username = me.data['email'].split('@')[0]
-                base_username = username
-                counter = 1
-                
-                # בדיקה אם שם המשתמש כבר קיים ויצירת שם חדש אם צריך
-                while User.query.filter_by(username=username).first():
-                    username = f"{base_username}{counter}"
-                    counter += 1
-                
+        except Exception as e:
+            app.logger.error('Error getting user info: %s', str(e))
+            # אם העמודות החדשות לא קיימות, ננסה ליצור משתמש חדש בלעדיהן
+            user = None
+
+        if user is None:
+            # יצירת משתמש חדש
+            try:
                 user = User(
-                    username=username,
+                    username=me.data['email'].split('@')[0],
                     email=me.data['email'],
-                    registration_date=datetime.now(timezone.utc)
+                    password_hash='',  # No password for OAuth users
+                    is_admin=False
                 )
                 db.session.add(user)
                 db.session.commit()
-                app.logger.info(f"New user created: {username}")
-            else:
-                app.logger.info(f"Existing user found: {user.username}")
-            
-            # התחברות המשתמש
-            login_user(user)
-            user.last_login = datetime.now(timezone.utc)
-            try:
-                db.session.commit()
+                app.logger.info('Created new user: %s', user.email)
             except Exception as e:
-                app.logger.error(f'שגיאה בעדכון זמן התחברות אחרון: {str(e)}')
-                # לא נחזיר שגיאה למשתמש כי ההתחברות עצמה הצליחה
+                app.logger.error('Error creating new user: %s', str(e))
+                return 'Error creating user account'
 
-            flash('התחברת בהצלחה!', 'success')
-            app.logger.info(f"User {user.username} logged in successfully")
-            return redirect(url_for('course'))
-            
-        except Exception as e:
-            app.logger.error(f"Error getting user info: {str(e)}")
-            app.logger.exception(e)
-            return 'Failed to get user info'
-            
+        login_user(user)
+        return redirect(url_for('index'))
+
     except Exception as e:
-        app.logger.error(f"Error in google_authorized: {str(e)}")
-        app.logger.exception(e)
-        return 'Error during authorization'
+        app.logger.error('Error in google_authorized: %s', str(e))
+        return str(e)
 
 @app.route('/')
 def index():
