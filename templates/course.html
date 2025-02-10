@@ -293,6 +293,24 @@
         .highlight {
             color: #dc3545;
         }
+        
+        .special-offer-btn {
+            background-color: #8a5dc7;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .special-offer-btn:hover {
+            background-color: #7340b5;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 <body class="course-page">
@@ -315,13 +333,39 @@
             <span class="progress-text">{{ progress }}% הושלמו</span>
         </div>
 
-        <!-- Floating Button -->
-        <div class="button-container">
-            <button id="specialOfferBtn" class="floating-button" onclick="showCompletionModal()">
-                <i class="fas fa-gift"></i>
-                הטבה מיוחדת עבורך
+        <!-- Completion Modal -->
+        <div id="completionModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <div class="modal-header">
+                    <h2>כל הכבוד! 🎉</h2>
+                    <p>סיימת את קורס המבוא!</p>
+                </div>
+                <div class="modal-body">
+                    <div class="price-section">
+                        <div class="original-price">
+                            <span class="price-label">מחיר מקורי:</span>
+                            <span class="price-value" id="originalPrice">טוען...</span>
+                        </div>
+                        <div class="discount-price">
+                            <span class="price-label">מחיר מיוחד עבורך:</span>
+                            <span class="price-value" id="discountPrice">טוען...</span>
+                        </div>
+                    </div>
+                    <button class="whatsapp-button" onclick="openWhatsApp()">
+                        הטבה מיוחדת עבורך!
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {% if course_completed %}
+        <div class="special-offer-container" style="position: fixed; bottom: 20px; left: 20px;">
+            <button class="whatsapp-button" onclick="openWhatsApp()">
+                הטבה מיוחדת עבורך!
             </button>
         </div>
+        {% endif %}
 
         <div class="chapters-container">
             {% set chapters = [
@@ -427,34 +471,6 @@
                 </div>
             </div>
             {% endfor %}
-        </div>
-    </div>
-
-    <!-- Completion Modal -->
-    <div id="completionModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <div class="modal-header">
-                <h2>כל הכבוד! 🎉</h2>
-                <p>סיימת את קורס המבוא!</p>
-            </div>
-            <div class="modal-body">
-                <div class="price-section">
-                    <div class="original-price">
-                        <span class="price-label">מחיר מקורי:</span>
-                        <span class="price-value" id="originalPrice">טוען...</span>
-                    </div>
-                    <div class="discount-price">
-                        <span class="price-label">מחיר מבצע:</span>
-                        <span class="price-value highlight" id="discountPrice">טוען...</span>
-                    </div>
-                </div>
-                
-                <a href="https://wa.me/+972523303050?text=היי, סיימתי את קורס המבוא ואשמח להצטרף לסדנה במחיר המיוחד" class="whatsapp-button">
-                    <i class="fab fa-whatsapp"></i>
-                    אני רוצה להצטרף במחיר המיוחד
-                </a>
-            </div>
         </div>
     </div>
 
@@ -690,8 +706,24 @@
             }
         }
 
-        function openQuiz() {
-            window.location.href = '/quiz';
+        function openWhatsApp() {
+            // שליחת בקשה לתיעוד הלחיצה
+            fetch('/api/track_whatsapp_click', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // פתיחת וואצאפ
+                window.location.href = 'https://wa.me/+972523303050?text=היי, סיימתי את קורס המבוא ואשמח להצטרף לסדנה במחיר המיוחד';
+            })
+            .catch(error => {
+                console.error('שגיאה בתיעוד לחיצה על וואצאפ:', error);
+                // במקרה של שגיאה, עדיין נפתח את וואצאפ
+                window.location.href = 'https://wa.me/+972523303050?text=היי, סיימתי את קורס המבוא ואשמח להצטרף לסדנה במחיר המיוחד';
+            });
         }
 
         function startConfetti() {

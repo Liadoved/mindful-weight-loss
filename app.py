@@ -18,6 +18,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import ssl
 from urllib.parse import urlparse
+import csv
+from io import StringIO
 
 # Load environment variables
 load_dotenv()
@@ -68,7 +70,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120))
+    password_hash = db.Column(db.String(128))
     full_name = db.Column(db.String(120))
     phone = db.Column(db.String(20))
     gender = db.Column(db.String(10))  # זכר/נקבה
@@ -78,6 +80,8 @@ class User(UserMixin, db.Model):
     quiz_answers = db.Column(db.JSON, default={})  # שמירת תשובות השאלון
     completed_videos = db.Column(db.Text, default='')
     progress = db.Column(db.Integer, default=0)
+    course_completed = db.Column(db.Boolean, default=False)
+    clicked_whatsapp = db.Column(db.Boolean, default=False)
     is_admin = db.Column(db.Boolean, default=False)
 
     def set_password(self, password):
@@ -548,36 +552,21 @@ def logout():
 @app.route('/course')
 @login_required
 def course():
-    try:
-        completed_videos = []
-        if current_user.completed_videos:
-            completed_videos = current_user.completed_videos.split(',')
-            
-        app.logger.info(f"Completed videos: {completed_videos}")
-        
-        # חישוב ההתקדמות
-        progress = 0
-        if completed_videos:
-            progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
-            
-        app.logger.info(f"Progress: {progress}%")
-        
-        # קביעת הפרק הבא
-        next_chapter = 1
-        for i in range(1, 8):  # 7 chapters total
-            if str(i) not in completed_videos:
-                next_chapter = i
-                break
-        
-        app.logger.info(f"Next chapter: {next_chapter}")
-        
-        return render_template('course.html',
-                             completed_videos=completed_videos,
-                             progress=progress,
-                             next_chapter=next_chapter)
-    except Exception as e:
-        app.logger.error(f"Error in course route: {str(e)}")
-        return render_template('course.html', completed_videos=[], progress=0, next_chapter=1)
+    # בדיקה אם המשתמש השלים את כל הפרקים
+    total_videos = len(VIDEOS)
+    completed_count = current_user.get_completed_videos_count()
+    current_user.progress = int((completed_count / total_videos) * 100)
+    
+    # אם המשתמש סיים את כל הפרקים, נסמן זאת
+    if current_user.progress == 100:
+        current_user.course_completed = True
+        db.session.commit()
+    
+    return render_template('course.html', 
+                         videos=VIDEOS,
+                         completed_videos=current_user.completed_videos.split(',') if current_user.completed_videos else [],
+                         progress=current_user.progress,
+                         course_completed=getattr(current_user, 'course_completed', False))
 
 @app.route('/mark_complete/<video_id>', methods=['POST'])
 @login_required
@@ -919,6 +908,52 @@ def update_prices():
         db.session.rollback()
         return jsonify({'error': 'שגיאה בעדכון המחירים'}), 500
 
+@app.route('/api/statistics')
+@requires_admin
+def get_statistics():
+    try:
+        total_users = User.query.count()
+        completed_users = User.query.filter_by(course_completed=True).count()
+        completion_rate = (completed_users / total_users * 100) if total_users > 0 else 0
+        
+        # פילוח סוגי אכילה
+        eating_types = db.session.query(
+            User.difficulty,
+            db.func.count(User.id)
+        ).group_by(User.difficulty).all()
+        
+        eating_types_data = {
+            eating_type: count 
+            for eating_type, count in eating_types 
+            if eating_type is not None
+        }
+        
+        # אחוזי הקלקה על וואצאפ
+        whatsapp_clicks = User.query.filter_by(clicked_whatsapp=True, course_completed=True).count()
+        whatsapp_rate = (whatsapp_clicks / completed_users * 100) if completed_users > 0 else 0
+        
+        return jsonify({
+            'total_users': total_users,
+            'completion_rate': round(completion_rate, 1),
+            'eating_types': eating_types_data,
+            'whatsapp_click_rate': round(whatsapp_rate, 1)
+        })
+        
+    except Exception as e:
+        app.logger.error(f'שגיאה בקבלת נתונים סטטיסטיים: {str(e)}')
+        return jsonify({'error': 'שגיאה בקבלת הנתונים'}), 500
+
+@app.route('/api/track_whatsapp_click', methods=['POST'])
+@login_required
+def track_whatsapp_click():
+    try:
+        current_user.clicked_whatsapp = True
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f'שגיאה בתיעוד לחיצה על וואצאפ: {str(e)}')
+        return jsonify({'error': 'שגיאה בתיעוד הלחיצה'}), 500
+
 @app.route('/admin/settings', methods=['POST'])
 @login_required
 @requires_admin
@@ -939,6 +974,42 @@ def make_admin(user_id):
         db.session.commit()
         flash(f'המשתמש {user.username} הפך למנהל בהצלחה', 'success')
     return redirect(url_for('admin'))
+
+@app.route('/export_users', methods=['GET'])
+@requires_admin
+def export_users():
+    try:
+        # יצירת קובץ CSV
+        si = StringIO()
+        cw = csv.writer(si)
+        
+        # כותרות העמודות
+        cw.writerow(['שם מלא', 'אימייל', 'תאריך הרשמה', 'התקדמות', 'סוג אכילה', 'מספר שיעורים שהושלמו'])
+        
+        # נתוני המשתמשים
+        users = User.query.all()
+        for user in users:
+            cw.writerow([
+                user.full_name,
+                user.email,
+                user.registration_date.strftime('%Y-%m-%d'),
+                f"{user.get_progress()}%",
+                user.get_eating_type(),
+                user.get_completed_videos_count()
+            ])
+        
+        # הגדרת התגובה
+        output = si.getvalue()
+        si.close()
+        
+        response = app.make_response(output)
+        response.headers["Content-Disposition"] = f"attachment; filename=users_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        response.headers["Content-type"] = "text/csv; charset=utf-8"
+        return response
+        
+    except Exception as e:
+        app.logger.error(f'שגיאה בייצוא משתמשים: {str(e)}')
+        return jsonify({'error': 'שגיאה בייצוא המשתמשים'}), 500
 
 _is_db_initialized = False
 
