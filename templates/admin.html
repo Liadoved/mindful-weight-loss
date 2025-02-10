@@ -7,108 +7,154 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* משתנים */
+        :root {
+            --primary-color: #8a5dc7;
+            --danger-color: #dc3545;
+            --border-color: #dee2e6;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+            --border-radius: 8px;
+            --spacing: 20px;
+        }
+
+        /* סגנונות בסיסיים */
         .admin-page {
-            padding: 20px;
+            padding: var(--spacing);
             max-width: 1200px;
             margin: 0 auto;
         }
 
+        /* כרטיסיות */
         .card {
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: var(--spacing);
             overflow: hidden;
         }
 
         .card-header {
             background: #f8f9fa;
-            padding: 15px 20px;
-            border-bottom: 1px solid #dee2e6;
+            padding: 15px var(--spacing);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .card-body {
-            padding: 20px;
+            padding: var(--spacing);
+        }
+
+        /* טבלה */
+        .table-container {
+            overflow-x: auto;
+            margin: 0 -5px;
         }
 
         .table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 800px;
         }
 
-        .table th, .table td {
+        .table th, 
+        .table td {
             padding: 12px;
             text-align: right;
-            border-bottom: 1px solid #dee2e6;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .table th {
             background: #f8f9fa;
-            font-weight: bold;
+            font-weight: 500;
+            white-space: nowrap;
         }
 
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* כפתורים */
         .btn {
             padding: 8px 16px;
             border-radius: 4px;
             border: none;
             cursor: pointer;
             transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
         }
 
         .btn-primary {
-            background: #8a5dc7;
+            background: var(--primary-color);
             color: white;
         }
 
         .btn-danger {
-            background: #dc3545;
+            background: var(--danger-color);
             color: white;
         }
 
+        /* ניהול מחירים */
         .price-management {
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            padding: var(--spacing);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: var(--spacing);
         }
         
-        .price-management .form-group {
+        .form-group {
             margin-bottom: 15px;
         }
         
-        .price-management label {
+        .form-group label {
             display: block;
             margin-bottom: 5px;
-            font-weight: bold;
+            font-weight: 500;
         }
         
-        .price-management input {
+        .form-group input {
             width: 200px;
             padding: 8px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
+            transition: border-color 0.3s ease;
         }
 
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        /* סטטיסטיקה */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing);
             margin-top: 30px;
         }
 
         .stat-card {
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: var(--spacing);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
             text-align: center;
         }
 
         .stat-number {
             font-size: 24px;
             font-weight: bold;
-            color: #8a5dc7;
+            color: var(--primary-color);
             margin: 10px 0;
         }
 
@@ -117,14 +163,38 @@
             font-size: 14px;
         }
 
+        /* רספונסיביות */
         @media (max-width: 768px) {
-            .table-responsive {
-                overflow-x: auto;
+            .card-header {
+                flex-direction: column;
+                gap: 10px;
             }
-            
-            .table th, .table td {
-                white-space: nowrap;
+
+            .form-group input {
+                width: 100%;
             }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* מצבי טעינה ושגיאה */
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .error-text {
+            color: var(--danger-color);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing);
+            color: #666;
         }
     </style>
 </head>
@@ -140,98 +210,157 @@
                     <button onclick="exportToCSV()" class="btn btn-primary">ייצוא לאקסל</button>
                 </div>
                 <div class="card-body table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>שם מלא</th>
-                                <th>אימייל</th>
-                                <th>תאריך הרשמה</th>
-                                <th>התקדמות בקורס</th>
-                                <th>סוג אכילה</th>
-                                <th>פעולות</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for user in users %}
-                            <tr>
-                                <td>{{ user.full_name }}</td>
-                                <td>{{ user.email }}</td>
-                                <td>{{ user.registration_date.strftime('%Y-%m-%d') }}</td>
-                                <td>{{ user.get_progress() }}%</td>
-                                <td>{{ user.get_eating_type() }}</td>
-                                <td>
-                                    <button onclick="deleteUser('{{ user.id }}')" class="btn btn-danger">מחק</button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>שם מלא</th>
+                                    <th>אימייל</th>
+                                    <th>תאריך הרשמה</th>
+                                    <th>התקדמות בקורס</th>
+                                    <th>סוג אכילה</th>
+                                    <th>פעולות</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>{{ user.full_name }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.registration_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ user.get_progress() }}%</td>
+                                    <td>{{ user.get_eating_type() }}</td>
+                                    <td>
+                                        <button onclick="deleteUser('{{ user.id }}')" class="btn btn-danger">מחק</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ניהול מחירים -->
-        <div class="col-md-12 mb-4">
-            <div class="admin-section">
+        <div class="card">
+            <div class="card-header">
                 <h2>ניהול מחירים</h2>
+            </div>
+            <div class="card-body">
                 <div class="price-management">
                     <div class="form-group">
                         <label for="originalPrice">מחיר מקורי:</label>
-                        <input type="number" id="originalPrice" class="form-control" step="0.01">
+                        <input type="number" id="originalPrice" min="0" step="0.01">
+                        <div id="originalPriceError" class="error-text"></div>
                     </div>
                     <div class="form-group">
                         <label for="discountedPrice">מחיר מבצע:</label>
-                        <input type="number" id="discountedPrice" class="form-control" step="0.01">
+                        <input type="number" id="discountedPrice" min="0" step="0.01">
+                        <div id="discountedPriceError" class="error-text"></div>
                     </div>
-                    <button onclick="updatePrices()" class="btn btn-primary">עדכן מחירים</button>
+                    <button onclick="updatePrices()" class="btn btn-primary" id="updatePricesBtn">עדכן מחירים</button>
                 </div>
             </div>
         </div>
 
         <!-- סטטיסטיקה -->
-        <div class="stats-section mt-5">
-            <h2>סטטיסטיקה</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number">{{ total_users }}</div>
-                    <div class="stat-label">סה"כ משתמשים</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ active_users }}</div>
-                    <div class="stat-label">משתמשים פעילים</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ '{:.1f}'.format(average_progress) }}%</div>
-                    <div class="stat-label">ממוצע התקדמות בקורס</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ completed_users }}</div>
-                    <div class="stat-label">סיימו את הקורס</div>
+        <div class="card">
+            <div class="card-header">
+                <h2>סטטיסטיקה</h2>
+            </div>
+            <div class="card-body">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ total_users if total_users is not none else 0 }}</div>
+                        <div class="stat-label">סה"כ משתמשים</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ active_users if active_users is not none else 0 }}</div>
+                        <div class="stat-label">משתמשים פעילים</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ '{:.1f}'.format(average_progress) if average_progress is not none else '0.0' }}%</div>
+                        <div class="stat-label">ממוצע התקדמות בקורס</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ completed_users if completed_users is not none else 0 }}</div>
+                        <div class="stat-label">סיימו את הקורס</div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // טיפול במצבי טעינה
+        function setLoading(isLoading) {
+            const updateBtn = document.getElementById('updatePricesBtn');
+            if (isLoading) {
+                updateBtn.classList.add('loading');
+                updateBtn.disabled = true;
+            } else {
+                updateBtn.classList.remove('loading');
+                updateBtn.disabled = false;
+            }
+        }
+
+        // ניקוי הודעות שגיאה
+        function clearErrors() {
+            document.getElementById('originalPriceError').textContent = '';
+            document.getElementById('discountedPriceError').textContent = '';
+        }
+
+        // וולידציה של המחירים
+        function validatePrices(original, discounted) {
+            let isValid = true;
+            clearErrors();
+
+            if (!original || original <= 0) {
+                document.getElementById('originalPriceError').textContent = 'נא להזין מחיר מקורי תקין';
+                isValid = false;
+            }
+
+            if (!discounted || discounted <= 0) {
+                document.getElementById('discountedPriceError').textContent = 'נא להזין מחיר מבצע תקין';
+                isValid = false;
+            }
+
+            if (discounted > original) {
+                document.getElementById('discountedPriceError').textContent = 'מחיר המבצע חייב להיות נמוך מהמחיר המקורי';
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
         // טעינת המחירים הנוכחיים
         async function loadPrices() {
             try {
+                setLoading(true);
                 const response = await fetch('/get_prices');
-                const prices = await response.json();
+                if (!response.ok) throw new Error('שגיאה בטעינת המחירים');
                 
+                const prices = await response.json();
                 document.getElementById('originalPrice').value = prices.original;
                 document.getElementById('discountedPrice').value = prices.discounted;
             } catch (error) {
                 console.error('Error loading prices:', error);
+                alert('שגיאה בטעינת המחירים. נא לנסות שוב מאוחר יותר.');
+            } finally {
+                setLoading(false);
             }
         }
 
         // עדכון מחירים
         async function updatePrices() {
-            const originalPrice = document.getElementById('originalPrice').value;
-            const discountedPrice = document.getElementById('discountedPrice').value;
+            const originalPrice = parseFloat(document.getElementById('originalPrice').value);
+            const discountedPrice = parseFloat(document.getElementById('discountedPrice').value);
+            
+            if (!validatePrices(originalPrice, discountedPrice)) return;
             
             try {
+                setLoading(true);
                 const response = await fetch('/update_prices', {
                     method: 'POST',
                     headers: {
@@ -243,28 +372,33 @@
                     })
                 });
                 
-                if (response.ok) {
-                    alert('המחירים עודכנו בהצלחה');
-                } else {
-                    alert('שגיאה בעדכון המחירים');
-                }
+                if (!response.ok) throw new Error('שגיאה בעדכון המחירים');
+                
+                alert('המחירים עודכנו בהצלחה');
             } catch (error) {
                 console.error('Error updating prices:', error);
-                alert('שגיאה בעדכון המחירים');
+                alert('שגיאה בעדכון המחירים. נא לנסות שוב מאוחר יותר.');
+            } finally {
+                setLoading(false);
             }
         }
 
         // מחיקת משתמש
         function deleteUser(userId) {
+            if (!userId) {
+                console.error('Missing user ID');
+                return;
+            }
+
             if (confirm('האם אתה בטוח שברצונך למחוק משתמש זה?')) {
                 fetch(`/delete_user/${userId}`, {
                     method: 'POST'
                 }).then(response => {
-                    if (response.ok) {
-                        location.reload();
-                    } else {
-                        alert('שגיאה במחיקת המשתמש');
-                    }
+                    if (!response.ok) throw new Error('שגיאה במחיקת המשתמש');
+                    location.reload();
+                }).catch(error => {
+                    console.error('Error deleting user:', error);
+                    alert('שגיאה במחיקת המשתמש. נא לנסות שוב מאוחר יותר.');
                 });
             }
         }
