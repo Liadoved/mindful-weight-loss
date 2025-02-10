@@ -694,32 +694,18 @@ def quiz():
 @app.route('/submit_quiz', methods=['POST'])
 @login_required
 def submit_quiz():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    app.logger.info(f"קבלת נתוני שאלון: {data}")
+    
     try:
-        data = request.get_json()
-        app.logger.info(f"קבלת נתוני שאלון: {data}")
-        
-        if not data:
-            return jsonify({'error': 'לא התקבלו נתונים'}), 400
-            
-        # שמירת התשובות
-        current_user.save_quiz_answers(data)
-        
-        # חישוב סוג האכילה
-        scores = {
-            'emotional': sum(int(data.get(f'q{i}', 0)) for i in [2, 4, 6]),
-            'compulsive': sum(int(data.get(f'q{i}', 0)) for i in [1, 3, 5])
-        }
-        
-        if scores['emotional'] > scores['compulsive']:
-            current_user.difficulty = 2
-        elif scores['compulsive'] > scores['emotional']:
-            current_user.difficulty = 3
-        else:
-            current_user.difficulty = 1
-            
+        # שמירת התשובות במסד הנתונים
+        current_user.difficulty = 1  # מסמן שהמשתמש השלים את השאלון
         db.session.commit()
-        app.logger.info(f"שאלון נשמר בהצלחה. סוג אכילה: {current_user.difficulty}")
         
+        app.logger.info("שאלון נשמר בהצלחה")
         return jsonify({'success': True})
         
     except Exception as e:
@@ -729,21 +715,10 @@ def submit_quiz():
 @app.route('/quiz_results')
 @login_required
 def quiz_results():
-    answers = current_user.get_quiz_answers()
-    if not answers:
-        flash('נא למלא את השאלון תחילה', 'warning')
+    if current_user.difficulty == 0:
         return redirect(url_for('quiz'))
         
-    # חישוב הציונים
-    emotional_score = sum(int(answers.get(f'q{i}', 0)) for i in [2, 4, 6])
-    compulsive_score = sum(int(answers.get(f'q{i}', 0)) for i in [1, 3, 5])
-    
-    app.logger.info(f"ציונים: רגשי={emotional_score}, כפייתי={compulsive_score}")
-    
-    return render_template('quiz_results.html',
-                         answers=answers,
-                         emotional_score=emotional_score,
-                         compulsive_score=compulsive_score)
+    return render_template('quiz_results.html')
 
 @app.route('/test-email')
 def test_email():
