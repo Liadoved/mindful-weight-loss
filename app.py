@@ -65,7 +65,7 @@ app.logger.setLevel(logging.INFO)
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(120))
+    full_name = db.Column(db.String(120))  # נשתמש בעמודה הישנה בינתיים
     gender = db.Column(db.String(10))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone('Asia/Jerusalem')))
     last_login = db.Column(db.DateTime)
@@ -351,25 +351,26 @@ def index():
 def register():
     if request.method == 'POST':
         email = request.form.get('email')
-        full_name = request.form.get('full_name')
+        full_name = request.form.get('full_name')  # נשתמש בשם הישן של השדה
         gender = request.form.get('gender')
         
         if User.query.filter_by(email=email).first():
-            flash('כתובת האימייל כבר קיימת במערכת', 'danger')
+            flash('כתובת האימייל כבר קיימת במערכת')
             return redirect(url_for('register'))
         
         user = User(
             email=email,
-            name=full_name,
+            full_name=full_name,  # נשתמש בשם הישן של השדה
             gender=gender,
             created_at=datetime.now(timezone('Asia/Jerusalem')),
             last_login=datetime.now(timezone('Asia/Jerusalem'))
         )
+        
         db.session.add(user)
         db.session.commit()
         
         login_user(user)
-        return redirect(url_for('course'))
+        return redirect(url_for('quiz'))
     
     return render_template('register.html')
 
