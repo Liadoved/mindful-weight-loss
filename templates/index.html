@@ -11,6 +11,12 @@
 <body class="home-page">
     {% include 'navbar.html' %}
 
+    {% if current_user.is_authenticated %}
+    <div class="user-welcome">
+        <h2>ברוכים הבאים, {{ current_user.display_name }}!</h2>
+    </div>
+    {% endif %}
+
     <header class="hero">
         <div class="hero-content">
             <h1>גלי את הדרך להרזיה מודעת ובריאה</h1>
