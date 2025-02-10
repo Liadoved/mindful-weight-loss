@@ -17,6 +17,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import ssl
+from urllib.parse import url_parse
 
 # Load environment variables
 load_dotenv()
@@ -402,87 +403,80 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        email = request.form.get('email')
-        full_name = request.form.get('full_name')
-        age = request.form.get('age')
-        gender = request.form.get('gender')
-        phone = request.form.get('phone')
-        city = request.form.get('city')
-        address = request.form.get('address')
-        difficulty = request.form.get('difficulty')
-        comments = request.form.get('comments')
-
-        # בדיקת שדות חובה
-        required_fields = {'email': email, 'full_name': full_name, 'age': age, 
-                         'gender': gender, 'phone': phone, 'difficulty': difficulty}
-        
-        missing_fields = [field for field, value in required_fields.items() if not value]
-        
-        if missing_fields:
-            app.logger.warning(f"Registration failed: Missing required fields: {', '.join(missing_fields)}")
-            flash("אנא מלא/י את כל שדות החובה")
-            return render_template('register.html')
-
-        # בדיקה אם המשתמש כבר קיים
-        if User.query.filter_by(email=email).first():
-            flash("כתובת האימייל כבר רשומה במערכת")
-            return render_template('register.html')
-
         try:
-            # משתמשים במספר הטלפון כסיסמה
-            password = phone
-            
+            email = request.form.get('email', '').strip()
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            full_name = request.form.get('full_name', '').strip()
+            phone = request.form.get('phone', '').strip()
+            gender = request.form.get('gender', '').strip()
+
+            # וולידציה בסיסית
+            if not all([email, username, password, full_name]):
+                flash('כל השדות המסומנים בכוכבית הם חובה', 'error')
+                return redirect(url_for('register'))
+
+            # בדיקת אורך סיסמה
+            if len(password) < 6:
+                flash('הסיסמה חייבת להכיל לפחות 6 תווים', 'error')
+                return redirect(url_for('register'))
+
+            # בדיקת תקינות אימייל
+            if '@' not in email or '.' not in email:
+                flash('כתובת האימייל אינה תקינה', 'error')
+                return redirect(url_for('register'))
+
+            # בדיקה אם המשתמש כבר קיים
+            if User.query.filter_by(email=email).first():
+                flash('כתובת האימייל כבר רשומה במערכת', 'error')
+                return redirect(url_for('register'))
+
+            if User.query.filter_by(username=username).first():
+                flash('שם המשתמש כבר תפוס', 'error')
+                return redirect(url_for('register'))
+
             # יצירת משתמש חדש
-            new_user = User(
-                username=email,  # משתמשים באימייל בתור שם משתמש
+            user = User(
+                username=username,
                 email=email,
-                password_hash=generate_password_hash(password),
                 full_name=full_name,
-                age=int(age),
-                gender=gender,
                 phone=phone,
-                city=city or None,
-                address=address or None,
-                difficulty=int(difficulty),
-                comments=comments or None,
-                registration_date=datetime.now(timezone.utc)  # שימוש ב-datetime במקום current_timestamp
+                gender=gender
             )
-            
-            db.session.add(new_user)
-            db.session.commit()
-            
-            # הכנת נתוני המשתמש לשליחה במייל
-            user_data = {
-                'full_name': full_name,
-                'email': email,
-                'phone': phone,
-                'age': age,
-                'gender': gender,
-                'city': city,
-                'address': address,
-                'difficulty': difficulty,
-                'comments': comments,
-                'registration_date': new_user.registration_date  # שימוש באובייקט שכבר נשמר
-            }
-            
-            # שליחת מייל למשתמש
-            user_email_sent = send_registration_email(email, email, password, user_data, is_admin=False)
-            
-            # שליחת מייל למנהל
-            admin_email_sent = send_registration_email(email, email, password, user_data, is_admin=True)
-            
-            if user_email_sent and admin_email_sent:
-                flash("ההרשמה הושלמה בהצלחה! שלחנו לך מייל עם פרטי ההתחברות")
-            else:
-                flash("ההרשמה הושלמה אך הייתה בעיה בשליחת המייל. אנא צור/י קשר עם התמיכה")
-            
-            return redirect(url_for('login'))
+            user.set_password(password)
+
+            try:
+                db.session.add(user)
+                db.session.commit()
+
+                # שליחת אימייל
+                user_data = {
+                    'full_name': full_name,
+                    'email': email,
+                    'phone': phone,
+                    'gender': gender
+                }
                 
+                try:
+                    send_registration_email(email, username, password, user_data)
+                    send_registration_email(email, username, password, user_data, is_admin=True)
+                except Exception as e:
+                    app.logger.error(f'שגיאה בשליחת אימייל: {str(e)}')
+                    # לא נחזיר שגיאה למשתמש כי ההרשמה עצמה הצליחה
+
+                login_user(user)
+                return redirect(url_for('registration_success'))
+
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f'שגיאה בהרשמת משתמש: {str(e)}')
+                flash('אירעה שגיאה בתהליך ההרשמה. נא לנסות שוב.', 'error')
+                return redirect(url_for('register'))
+
         except Exception as e:
-            db.session.rollback()
-            app.logger.error(f"Registration error: {str(e)}")
-            flash("אירעה שגיאה בתהליך ההרשמה. אנא נסה/י שוב מאוחר יותר")
-            return render_template('register.html')
+            app.logger.error(f'שגיאה כללית בתהליך ההרשמה: {str(e)}')
+            flash('אירעה שגיאה. נא לנסות שוב מאוחר יותר.', 'error')
+            return redirect(url_for('register'))
 
     return render_template('register.html')
 
@@ -490,45 +484,63 @@ def register():
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    
+        
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        if not username or not password:
-            flash('אנא מלא את כל השדות')
-            return render_template('login.html')
-        
-        # מנסה למצוא משתמש לפי אימייל או שם משתמש
-        user = User.query.filter(
-            db.or_(User.email == username, User.username == username)
-        ).first()
-        
-        if user and user.check_password(password):
-            login_user(user)
+        try:
+            email = request.form.get('email', '').strip()
+            password = request.form.get('password', '').strip()
+            remember = request.form.get('remember', False)
+
+            if not email or not password:
+                flash('נא למלא את כל השדות', 'error')
+                return redirect(url_for('login'))
+
+            user = User.query.filter_by(email=email).first()
             
+            if not user:
+                app.logger.warning(f'ניסיון התחברות כושל - משתמש לא קיים: {email}')
+                flash('שם משתמש או סיסמה שגויים', 'error')
+                return redirect(url_for('login'))
+
+            if not user.check_password(password):
+                app.logger.warning(f'ניסיון התחברות כושל - סיסמה שגויה: {email}')
+                flash('שם משתמש או סיסמה שגויים', 'error')
+                return redirect(url_for('login'))
+
             # עדכון זמן התחברות אחרון
             user.last_login = datetime.now(timezone.utc)
-            db.session.commit()
-            
-            # בדיקה אם יש הפניה לדף אחר
+            try:
+                db.session.commit()
+            except Exception as e:
+                app.logger.error(f'שגיאה בעדכון זמן התחברות אחרון: {str(e)}')
+                # לא נחזיר שגיאה למשתמש כי ההתחברות עצמה הצליחה
+
+            login_user(user, remember=remember)
+            app.logger.info(f'התחברות מוצלחת: {email}')
+
+            # הפניה לדף המבוקש או לדף הבית
             next_page = request.args.get('next')
-            if next_page:
-                return redirect(next_page)
-            
-            # אם אין הפניה, מעביר לדף הקורס
-            return redirect(url_for('course'))
-        else:
-            flash('שם משתמש או סיסמה שגויים')
-            return render_template('login.html')
-    
+            if not next_page or url_parse(next_page).netloc != '':
+                next_page = url_for('index')
+            return redirect(next_page)
+
+        except Exception as e:
+            app.logger.error(f'שגיאה בתהליך ההתחברות: {str(e)}')
+            flash('אירעה שגיאה. נא לנסות שוב מאוחר יותר.', 'error')
+            return redirect(url_for('login'))
+
     return render_template('login.html')
 
 @app.route('/logout')
 @login_required
 def logout():
-    logout_user()
-    return redirect(url_for('index'))
+    try:
+        logout_user()
+        return redirect(url_for('index'))
+    except Exception as e:
+        app.logger.error(f'שגיאה בתהליך ההתנתקות: {str(e)}')
+        flash('אירעה שגיאה בהתנתקות', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/course')
 @login_required
@@ -668,87 +680,84 @@ def reset_progress():
 @app.route('/quiz', methods=['GET', 'POST'])
 @login_required
 def quiz():
-    if request.method == 'POST':
-        try:
-            app.logger.info("קבלת תשובות שאלון")
-            answers = request.form.to_dict()
-            app.logger.info(f"תשובות שהתקבלו: {answers}")
-            
-            current_user.save_quiz_answers(answers)
-            app.logger.info("תשובות נשמרו בהצלחה")
-            
-            # חישוב התוצאה
-            emotional_score = sum(int(answers.get(f'q{i}', 0)) for i in [2, 4, 6])
-            compulsive_score = sum(int(answers.get(f'q{i}', 0)) for i in [1, 3, 5])
-            
-            app.logger.info(f"ציון רגשי: {emotional_score}, ציון כפייתי: {compulsive_score}")
-            
-            if emotional_score > compulsive_score:
-                current_user.difficulty = 2  # רגשית
-            elif compulsive_score > emotional_score:
-                current_user.difficulty = 3  # כפייתית
-            else:
-                current_user.difficulty = 1  # מאוזנת
-                
-            db.session.commit()
-            app.logger.info(f"סוג אכילה נקבע: {current_user.difficulty}")
-            
+    if request.method == 'GET':
+        # בדיקה אם המשתמש כבר ענה על השאלון
+        if current_user.difficulty != 0:
             return redirect(url_for('quiz_results'))
-            
-        except Exception as e:
-            app.logger.error(f"שגיאה בשמירת תשובות השאלון: {str(e)}")
-            db.session.rollback()
-            flash('אירעה שגיאה בשמירת התשובות. אנא נסי שוב.', 'error')
-            return redirect(url_for('quiz'))
+        return render_template('quiz.html')
     
-    # אם יש תשובות קודמות, נציג אותן
-    saved_answers = current_user.get_quiz_answers()
-    return render_template('quiz.html', saved_answers=saved_answers)
+    return render_template('quiz.html')
 
 @app.route('/submit_quiz', methods=['POST'])
 @login_required
 def submit_quiz():
     try:
         data = request.get_json()
-        app.logger.info(f"קבלת נתוני שאלון: {data}")
+        if not data or 'answers' not in data:
+            return jsonify({'error': 'לא התקבלו תשובות'}), 400
+
+        answers = data['answers']
         
-        if not data:
-            return jsonify({'error': 'לא התקבלו נתונים'}), 400
+        # וולידציה של התשובות
+        required_questions = set(range(1, 11))  # שאלות 1-10
+        received_questions = set(int(q) for q in answers.keys())
+        
+        if required_questions != received_questions:
+            missing = required_questions - received_questions
+            return jsonify({'error': f'חסרות תשובות לשאלות: {", ".join(map(str, missing))}'}), 400
+
+        try:
+            # חישוב התוצאה
+            emotional_score = 0
+            compulsive_score = 0
             
-        # שמירת התשובות
-        current_user.save_quiz_answers(data)
-        
-        # חישוב סוג האכילה
-        scores = {
-            'emotional': sum(int(data.get(f'q{i}', 0)) for i in [2, 4, 6]),
-            'compulsive': sum(int(data.get(f'q{i}', 0)) for i in [1, 3, 5])
-        }
-        
-        if scores['emotional'] > scores['compulsive']:
-            current_user.difficulty = 2
-        elif scores['compulsive'] > scores['emotional']:
-            current_user.difficulty = 3
-        else:
-            current_user.difficulty = 1
-            
-        db.session.commit()
-        app.logger.info(f"שאלון נשמר בהצלחה. סוג אכילה: {current_user.difficulty}")
-        
-        return jsonify({'success': True})
-        
+            for q, a in answers.items():
+                q_num = int(q)
+                answer = int(a)
+                
+                if not (1 <= answer <= 5):
+                    return jsonify({'error': f'תשובה לא חוקית לשאלה {q_num}'}), 400
+                
+                if q_num in [1, 3, 5, 7, 9]:
+                    emotional_score += answer
+                else:
+                    compulsive_score += answer
+
+            # קביעת הסוג
+            if emotional_score >= 15 and compulsive_score >= 15:
+                difficulty = 3  # כפייתית
+            elif emotional_score >= 15:
+                difficulty = 2  # רגשית
+            else:
+                difficulty = 1  # מאוזנת
+
+            # שמירת התוצאות
+            current_user.difficulty = difficulty
+            current_user.quiz_answers = answers
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'difficulty': difficulty,
+                'redirect_url': url_for('quiz_results')
+            })
+
+        except ValueError as e:
+            return jsonify({'error': 'ערך לא חוקי באחת התשובות'}), 400
+
     except Exception as e:
-        app.logger.error(f"שגיאה בשמירת השאלון: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        db.session.rollback()
+        app.logger.error(f'שגיאה בשמירת תוצאות השאלון: {str(e)}')
+        return jsonify({'error': 'אירעה שגיאה בשמירת התוצאות'}), 500
 
 @app.route('/quiz_results')
 @login_required
 def quiz_results():
-    answers = current_user.get_quiz_answers()
-    if not answers:
-        flash('נא למלא את השאלון תחילה', 'warning')
+    if current_user.difficulty == 0:
         return redirect(url_for('quiz'))
-    
-    return render_template('quiz_results.html')
+        
+    eating_type = current_user.get_eating_type()
+    return render_template('quiz_results.html', eating_type=eating_type)
 
 @app.route('/test-email')
 def test_email():
@@ -844,34 +853,62 @@ def admin():
                          average_progress=average_progress,
                          current_price=current_price)
 
-@app.route('/get_prices')
+@app.route('/api/prices', methods=['GET'])
 def get_prices():
-    price = Price.get_prices()
-    return jsonify({
-        'original': price.original_price,
-        'discounted': price.discounted_price
-    })
+    try:
+        price = Price.get_prices()
+        return jsonify({
+            'original_price': price.original_price,
+            'discounted_price': price.discounted_price
+        }), 200
+    except Exception as e:
+        app.logger.error(f'שגיאה בקבלת מחירים: {str(e)}')
+        return jsonify({'error': 'שגיאה בקבלת המחירים'}), 500
 
-@app.route('/update_prices', methods=['POST'])
-@login_required
+@app.route('/api/prices', methods=['POST'])
 @requires_admin
 def update_prices():
     try:
         data = request.get_json()
-        price = Price.get_prices()
         
-        if 'original' in data:
-            price.original_price = float(data['original'])
-        if 'discounted' in data:
-            price.discounted_price = float(data['discounted'])
+        if not data:
+            return jsonify({'error': 'לא התקבלו נתונים'}), 400
             
+        original_price = data.get('original_price')
+        discounted_price = data.get('discounted_price')
+        
+        # וולידציה
+        if original_price is None or discounted_price is None:
+            return jsonify({'error': 'חסרים שדות חובה'}), 400
+            
+        try:
+            original_price = float(original_price)
+            discounted_price = float(discounted_price)
+        except ValueError:
+            return jsonify({'error': 'המחירים חייבים להיות מספרים'}), 400
+            
+        if original_price < 0 or discounted_price < 0:
+            return jsonify({'error': 'המחירים חייבים להיות חיוביים'}), 400
+            
+        if discounted_price > original_price:
+            return jsonify({'error': 'מחיר מבצע לא יכול להיות גבוה מהמחיר המקורי'}), 400
+        
+        # עדכון המחירים
+        price = Price.get_prices()
+        price.original_price = original_price
+        price.discounted_price = discounted_price
         db.session.commit()
         
-        return jsonify({'status': 'success'})
+        return jsonify({
+            'message': 'המחירים עודכנו בהצלחה',
+            'original_price': original_price,
+            'discounted_price': discounted_price
+        }), 200
         
     except Exception as e:
-        app.logger.error(f"Error updating prices: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        db.session.rollback()
+        app.logger.error(f'שגיאה בעדכון מחירים: {str(e)}')
+        return jsonify({'error': 'שגיאה בעדכון המחירים'}), 500
 
 @app.route('/admin/settings', methods=['POST'])
 @login_required
