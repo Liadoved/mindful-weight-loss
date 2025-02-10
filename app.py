@@ -65,7 +65,7 @@ app.logger.setLevel(logging.INFO)
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    full_name = db.Column('full_name', db.String(120))  # תמיכה בשם העמודה הישן
+    name = db.Column(db.String(120))  # שימוש בעמודת name בלבד
     gender = db.Column(db.String(10))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone('Asia/Jerusalem')))
     last_login = db.Column(db.DateTime)
@@ -144,7 +144,7 @@ def send_registration_email(email, username, password, user_data, is_admin=False
         message["To"] = receiver_email
         
         if is_admin:
-            message["Subject"] = f"משתמשת חדשה נרשמה לקורס: {user_data['full_name']}"
+            message["Subject"] = f"משתמשת חדשה נרשמה לקורס: {user_data['name']}"
             html_content = f"""
             <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
                 <h2 style="color: #8a5dc7; text-align: center; margin-bottom: 20px; font-size: 24px;">משתמשת חדשה נרשמה לקורס!</h2>
@@ -152,7 +152,7 @@ def send_registration_email(email, username, password, user_data, is_admin=False
                 <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
                     <h3 style="color: #8a5dc7; margin-bottom: 20px; font-size: 20px;">פרטים אישיים</h3>
                     <div style="margin-bottom: 15px;">
-                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">שם מלא:</strong> {user_data['full_name']}</p>
+                        <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">שם מלא:</strong> {user_data['name']}</p>
                         <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">אימייל:</strong> {user_data['email']}</p>
                         <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">טלפון:</strong> {user_data['phone']}</p>
                         <p style="margin-bottom: 10px; font-size: 16px;"><strong style="color: #666;">גיל:</strong> {user_data['age']}</p>
@@ -198,7 +198,7 @@ def send_registration_email(email, username, password, user_data, is_admin=False
                 
                 <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-                        שלום {user_data['full_name']},
+                        שלום {user_data['name']},
                     </p>
                     
                     <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
@@ -351,7 +351,7 @@ def index():
 def register():
     if request.method == 'POST':
         email = request.form.get('email')
-        full_name = request.form.get('full_name')  # נקבל את השם מהטופס
+        name = request.form.get('full_name')  # נקבל את השם מהטופס
         gender = request.form.get('gender')
         
         if User.query.filter_by(email=email).first():
@@ -360,7 +360,7 @@ def register():
         
         user = User(
             email=email,
-            full_name=full_name,  # נשמור בעמודה הישנה
+            name=name,  # שמירה בעמודת name
             gender=gender,
             created_at=datetime.now(timezone('Asia/Jerusalem')),
             last_login=datetime.now(timezone('Asia/Jerusalem'))
