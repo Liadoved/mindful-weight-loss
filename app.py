@@ -65,7 +65,7 @@ app.logger.setLevel(logging.INFO)
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(120))  # נשתמש רק בעמודה אחת לשם
+    full_name = db.Column('full_name', db.String(120))  # תמיכה בשם העמודה הישן
     gender = db.Column(db.String(10))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone('Asia/Jerusalem')))
     last_login = db.Column(db.DateTime)
@@ -351,7 +351,7 @@ def index():
 def register():
     if request.method == 'POST':
         email = request.form.get('email')
-        name = request.form.get('full_name')  # נקבל את השם מהטופס
+        full_name = request.form.get('full_name')  # נקבל את השם מהטופס
         gender = request.form.get('gender')
         
         if User.query.filter_by(email=email).first():
@@ -360,7 +360,7 @@ def register():
         
         user = User(
             email=email,
-            name=name,  # נשמור בעמודת name
+            full_name=full_name,  # נשמור בעמודה הישנה
             gender=gender,
             created_at=datetime.now(timezone('Asia/Jerusalem')),
             last_login=datetime.now(timezone('Asia/Jerusalem'))

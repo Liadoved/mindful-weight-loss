@@ -13,7 +13,7 @@
 
     {% if current_user.is_authenticated %}
     <div class="user-welcome">
-        <h2>ברוכים הבאים, {{ current_user.name }}!</h2>
+        <h2>ברוכים הבאים, {{ current_user.full_name }}!</h2>
     </div>
     {% endif %}
 
