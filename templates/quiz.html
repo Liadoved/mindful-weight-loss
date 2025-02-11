@@ -1,654 +1,80 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <h1 class="text-center mb-4">שאלון אכילה רגשית</h1>
-    <p class="text-center mb-4 small">* השאלון מנוסח בלשון נקבה אך מכוון לשני המינים</p>
-    <form id="quiz-form">
-        <div class="quiz-question">
-            <p>1. באיזו תדירות את/ה אוכל/ת כשאת/ה מרגיש/ה לחץ או חרדה?</p>
-            <div class="quiz-options">
-                {% for i in range(1, 6) %}
-                <div class="quiz-option" data-value="{{ i }}" onclick="selectOption(this, 1)">{{ i }}</div>
-                {% endfor %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h2>שאלון אבחון סוג האכלנית שבך</h2>
+                    <p class="text-muted">* השאלון כתוב בלשון נקבה אך מיועד לשני המינים</p>
+                </div>
+                <div class="card-body">
+                    <form id="quizForm">
+                        <div class="questions">
+                            {% for i in range(1, 37) %}
+                            <div class="question">
+                                <p>{{ i }}. {{ questions[i] }}</p>
+                                <div class="form-check">
+                                    <input type="radio" name="{{ i }}" value="1" required>
+                                    <label>1 - אף פעם</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" name="{{ i }}" value="2">
+                                    <label>2 - לעיתים רחוקות</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" name="{{ i }}" value="3">
+                                    <label>3 - לפעמים</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" name="{{ i }}" value="4">
+                                    <label>4 - לעיתים קרובות</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" name="{{ i }}" value="5">
+                                    <label>5 - תמיד</label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">שלח תשובות</button>
+                    </form>
+                </div>
             </div>
         </div>
-        {{ ... }}
-    </form>
+    </div>
 </div>
 
 <script>
-function selectOption(element, questionNumber) {
-    // מסיר את הבחירה הקודמת
-    const options = element.parentElement.getElementsByClassName('quiz-option');
-    Array.from(options).forEach(opt => opt.classList.remove('selected'));
+document.getElementById('quizForm').addEventListener('submit', function(e) {
+    e.preventDefault();
     
-    // מסמן את האופציה שנבחרה
-    element.classList.add('selected');
-    
-    // שומר את הערך
-    answers[questionNumber] = parseInt(element.dataset.value);
-    
-    // בודק אם כל השאלות נענו
-    checkAllAnswered();
-}
-
-function checkAllAnswered() {
-    const answeredCount = Object.keys(answers).length;
-    const submitButton = document.getElementById('submit-quiz');
-    if (answeredCount === totalQuestions) {
-        submitButton.disabled = false;
-    }
-}
-
-let currentPage = 0;
-const questionsPerPage = 6;
-
-const questions = [
-    { id: 1, text: "אני מנשנשת מאוחר בלילה לעיתים תכופות", type: "a" },
-    { id: 2, text: "לעיתים רחוקות אני משאירה משהו בצלחת", type: "b" },
-    { id: 3, text: "אני לא אוהבת לסרב למשהו שמישהו מבשל עבורי", type: "c" },
-    { id: 4, text: "אני חושבת על אוכל כמעט כל היום", type: "d" },
-    { id: 5, text: "אני אוכלת בחוץ יותר מפעם אחת בכל שבוע", type: "e" },
-    { id: 6, text: "אוכל עוזר לי להרגיש בשליטה על עולמי", type: "f" },
-    { id: 7, text: "כאשר אני שרויה במתח, אני אוכלת יותר", type: "a" },
-    { id: 8, text: "אני הולכת למסעדות בהן אני יודעת שאקבל מנה ראויה", type: "b" },
-    { id: 9, text: "כשאני בתוך מערכת יחסים, אני אוכלת יותר", type: "c" },
-    { id: 10, text: "אני אוכלת כל כך מהר, שאני לא מרגישה את הטעם של האוכל", type: "d" },
-    { id: 11, text: "אני שונאת לערוך קניות של אוכל", type: "e" },
-    { id: 12, text: "יש לי שגרה של אוכל שאני מעדיפה להיצמד אליה", type: "f" },
-    { id: 13, text: "אני אוכלת יותר כאשר אני לבד", type: "a" },
-    { id: 14, text: "לעיתים קרובות אני גומרת את הארוחה של אנשים אחרים. 'מנקה' את הצלחת שלהם", type: "b" },
-    { id: 15, text: "בן/בת זוגי אינו מבין מה אני הכי אוהבת לאכול", type: "c" },
-    { id: 16, text: "אני מתאווה לממתקים באופן קבוע", type: "d" },
-    { id: 17, text: "אני מתייחסת לאוכל כאל דלק לגוף", type: "e" },
-    { id: 18, text: "אני משתמשת בדרך שאני אוכלת כאמצעי לקבלת תגובה מהסובבים אותי", type: "f" },
-    { id: 19, text: "לעיתים קרובות אני מתחרטת על מה שאכלתי, מיד אחרי שאכלתי אותו", type: "a" },
-    { id: 20, text: "אני נהנית לאכול במסעדות מסוג 'אכול כפי יכולתך'", type: "b" },
-    { id: 21, text: "בן / בת זוגי עולה במשקל וכך גם אני", type: "c" },
-    { id: 22, text: "אני לא יודעת למה אני לא יורדת יותר במשקל", type: "d" },
-    { id: 23, text: "תמיד יש לי מלאי של ארוחות מוכנות בבית", type: "e" },
-    { id: 24, text: "יש לי שגרה של אוכל שאני מעדיפה להיצמד אליה", type: "f" },
-    { id: 25, text: "אני אוכלת כשאני מרגישה תחת לחץ", type: "a" },
-    { id: 26, text: "אני נהנית להרגיש מלאה", type: "b" },
-    { id: 27, text: "אני לא אוהבת שבן/ בת זוגי או חברים אוכלים לבד אז אני מצטרפת אליהם", type: "c" },
-    { id: 28, text: "יש מאכלים שאני לא יכולה להפסיק לאכול אותם ברגע שאני מתחילה", type: "d" },
-    { id: 29, text: "לעיתים רחוקות אני מבשלת משהו שהבישול שלו לוקח יותר מ - 10 דקות", type: "e" },
-    { id: 30, text: "אני נלחצת כאשר אינני יכולה להיצמד לשגרת האכילה שלי", type: "f" },
-    { id: 31, text: "אוכל גורם לי עונג", type: "a" },
-    { id: 32, text: "לעיתים רחוקות אני אומרת 'לא' כאשר שמים לי אוכל בצלחת", type: "b" },
-    { id: 33, text: "אני אוכלת יותר כשאני נמצאת בחברה", type: "c" },
-    { id: 34, text: "אני מרגישה שאני לא יכולה לשלוט באכילה שלי", type: "d" },
-    { id: 35, text: "אני מעדיפה לאכול מול הטלוויזיה", type: "e" },
-    { id: 36, text: "אני מקפידה על תזונה מאוד מסודרת", type: "f" }
-];
-
-function showQuestionsPage(pageIndex) {
-    const startIndex = pageIndex * questionsPerPage;
-    const endIndex = startIndex + questionsPerPage;
-    const pageQuestions = questions.slice(startIndex, endIndex);
-    const form = document.querySelector('.quiz-question');
-    
-    form.innerHTML = pageQuestions.map((question, index) => `
-        <p>${question.text}</p>
-        <div class="quiz-options">
-            ${[1, 2, 3, 4, 5].map(value => `
-                <div class="quiz-option" data-value="${value}" onclick="selectOption(this, ${startIndex + index + 1})">${value}</div>
-            `).join('')}
-        </div>
-    `).join('');
-
-    // עדכון כפתורי ניווט
-    document.getElementById('prevButton').style.display = pageIndex > 0 ? 'block' : 'none';
-    document.getElementById('nextButton').style.display = pageIndex < Math.ceil(questions.length / questionsPerPage) - 1 ? 'block' : 'none';
-    document.getElementById('submitButton').style.display = pageIndex === Math.ceil(questions.length / questionsPerPage) - 1 ? 'block' : 'none';
-
-    // עדכון סרגל התקדמות
-    const progress = ((pageIndex + 1) / Math.ceil(questions.length / questionsPerPage)) * 100;
-    document.getElementById('quizProgress').style.width = `${progress}%`;
-    document.getElementById('progressText').textContent = `דף ${pageIndex + 1} מתוך ${Math.ceil(questions.length / questionsPerPage)}`;
-
-    checkPageCompletion();
-}
-
-function handleAnswerChange(questionId, value) {
-    const question = questions.find(q => q.id === questionId);
-    if (question) {
-        question.selectedAnswer = value;
-        saveAnswersToStorage();
-        checkPageCompletion();
-    }
-}
-
-function checkPageCompletion() {
-    const startIndex = currentPage * questionsPerPage;
-    const endIndex = startIndex + questionsPerPage;
-    const pageQuestions = questions.slice(startIndex, endIndex);
-    
-    const isPageComplete = pageQuestions.every(question => question.selectedAnswer !== undefined);
-    
-    if (currentPage === Math.ceil(questions.length / questionsPerPage) - 1) {
-        document.getElementById('submitButton').disabled = !isPageComplete;
-    } else {
-        document.getElementById('nextButton').disabled = !isPageComplete;
-    }
-}
-
-function saveAnswersToStorage() {
-    const answers = questions.map(q => ({
-        id: q.id,
-        selectedAnswer: q.selectedAnswer
-    }));
-    localStorage.setItem('quizAnswers', JSON.stringify(answers));
-    localStorage.setItem('currentPage', currentPage.toString());
-}
-
-function loadAnswersFromStorage() {
-    const savedAnswers = localStorage.getItem('quizAnswers');
-    const savedPage = localStorage.getItem('currentPage');
-    
-    if (savedAnswers) {
-        const answers = JSON.parse(savedAnswers);
-        answers.forEach(answer => {
-            const question = questions.find(q => q.id === answer.id);
-            if (question) {
-                question.selectedAnswer = answer.selectedAnswer;
-            }
-        });
-    }
-    
-    if (savedPage) {
-        currentPage = parseInt(savedPage);
-    }
-}
-
-function clearAnswersFromStorage() {
-    localStorage.removeItem('quizAnswers');
-    localStorage.removeItem('currentPage');
-}
-
-function clearAllStorageData() {
-    localStorage.removeItem('quizAnswers');
-    localStorage.removeItem('currentPage');
-    localStorage.removeItem('quizResults');
-}
-
-function calculateResults() {
-    const results = {
-        'a': 0, // אכילה רגשית
-        'b': 0, // אכילת יתר
-        'c': 0, // אכילה חברתית
-        'd': 0, // אכילה אובססיבית
-        'e': 0, // אכילה לא מודעת
-        'f': 0  // אכילה נוקשה
-    };
-
-    // חישוב הסכום לכל סוג
-    questions.forEach(question => {
-        if (question.selectedAnswer) {
-            results[question.type] += question.selectedAnswer;
+    let answers = {};
+    for (let i = 1; i <= 36; i++) {
+        const selectedOption = document.querySelector(`input[name="${i}"]:checked`);
+        if (selectedOption) {
+            answers[i] = selectedOption.value;
         }
-    });
-
-    return results;
-}
-
-function showResults(results) {
-    console.log('showResults function called with:', results);
-    
-    const modal = document.getElementById('completionModal');
-    const resultsTable = document.getElementById('resultsTable');
-    const primaryStyle = document.getElementById('primaryStyle');
-    const secondaryStyle = document.getElementById('secondaryStyle');
-    
-    if (!modal || !resultsTable || !primaryStyle || !secondaryStyle) {
-        console.error('Required elements not found!');
-        return;
     }
-
-    // יצירת טבלת תוצאות
-    let tableHTML = `
-        <table>
-            <tr>
-                <th>סגנון אכילה</th>
-                <th>ציון</th>
-            </tr>
-    `;
-
-    const styles = {
-        'a': 'אכילה רגשית',
-        'b': 'אכילת יתר',
-        'c': 'אכילה חברתית',
-        'd': 'אכילה אובססיבית',
-        'e': 'אכילה לא מודעת',
-        'f': 'אכילה נוקשה'
-    };
-
-    // מציאת הציון הגבוה ביותר
-    const maxScore = Math.max(...Object.values(results));
-
-    // יצירת שורות הטבלה
-    Object.entries(results).forEach(([type, score]) => {
-        const isHighest = score === maxScore;
-        tableHTML += `
-            <tr class="${isHighest ? 'highest-score' : ''}">
-                <td>${styles[type]}</td>
-                <td>${score}</td>
-            </tr>
-        `;
-    });
-    tableHTML += '</table>';
     
-    resultsTable.innerHTML = tableHTML;
-
-    // מציאת סגנון האכילה העיקרי והמשני
-    const sortedScores = Object.entries(results)
-        .sort((a, b) => b[1] - a[1]);
-
-    primaryStyle.textContent = `סגנון האכילה העיקרי שלך הוא: ${styles[sortedScores[0][0]]}`;
-
-    if (sortedScores[1][1] >= sortedScores[0][1] - 2) {
-        secondaryStyle.textContent = `יש לך גם נטייה משמעותית לסגנון: ${styles[sortedScores[1][0]]}`;
-    } else {
-        secondaryStyle.textContent = '';
-    }
-
-    // מציג את המודל
-    document.body.style.overflow = 'hidden'; // מונע גלילה ברקע
-    modal.classList.add('show');
-}
-
-function submitQuiz() {
-    console.log('submitQuiz function called');
-    
-    // בדיקה שכל השאלות נענו
-    const allAnswered = questions.every(q => q.selectedAnswer !== undefined);
-    if (!allAnswered) {
-        alert('אנא ענה על כל השאלות לפני שליחת השאלון');
-        return;
-    }
-
-    const results = calculateResults();
-
-    // שמירת התוצאות ב-localStorage
-    localStorage.setItem('quizResults', JSON.stringify(results));
-    
-    // שליחת התוצאות לשרת ומעבר לדף התוצאות
     fetch('/submit_quiz', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(results)
+        body: JSON.stringify({ answers: answers })
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
+    .then(response => response.json())
+    .then(data => {
+        if (data.redirect) {
+            window.location.href = data.redirect;
         }
-        return response.json();
-    })
-    .then(() => {
-        // מעבר לדף התוצאות
-        window.location.href = '/quiz_results';
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('אירעה שגיאה בשמירת התוצאות. אנא נסי שוב.');
-    });
-}
-
-// אתחול השאלון
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded');
-    
-    // איפוס כל הנתונים
-    clearAllStorageData();
-    
-    // טעינת תשובות קודמות
-    loadAnswersFromStorage();
-    
-    // טעינת תוצאות קודמות אם קיימות
-    const savedResults = localStorage.getItem('quizResults');
-    if (savedResults) {
-        console.log('Found saved results');
-        showResults(JSON.parse(savedResults));
-    }
-    
-    showQuestionsPage(currentPage);
-
-    // הוספת מאזינים לכפתורים
-    const submitButton = document.getElementById('submitButton');
-    const nextButton = document.getElementById('nextButton');
-    const prevButton = document.getElementById('prevButton');
-    const modal = document.getElementById('completionModal');
-    const closeBtn = document.querySelector('.close-modal');
-
-    if (!submitButton || !nextButton || !prevButton || !modal || !closeBtn) {
-        console.error('Required elements not found');
-        return;
-    }
-
-    submitButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        submitQuiz();
-    });
-
-    nextButton.addEventListener('click', () => {
-        saveAnswersToStorage();
-        currentPage++;
-        showQuestionsPage(currentPage);
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // גלילה לראש העמוד
-    });
-
-    prevButton.addEventListener('click', () => {
-        saveAnswersToStorage();
-        currentPage--;
-        showQuestionsPage(currentPage);
-    });
-
-    // סגירת המודל
-    const closeModal = () => {
-        modal.classList.remove('show');
-        document.body.style.overflow = '';
-    };
-
-    closeBtn.addEventListener('click', closeModal);
-
-    modal.addEventListener('click', (event) => {
-        if (event.target === modal) {
-            closeModal();
-        }
-    });
-
-    // מניעת סגירת המודל בלחיצה על תוכן המודל
-    modal.querySelector('.modal-content').addEventListener('click', (event) => {
-        event.stopPropagation();
+        alert('שגיאה בשליחת השאלון. אנא נסה שוב.');
     });
 });
 </script>
-
-<style>
-    /* Basic styles */
-    body {
-        position: relative;
-        min-height: 100vh;
-    }
-
-    .container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px;
-        padding-top: 100px; /* מרווח מהנאבבר */
-        position: relative;
-    }
-
-    .quiz-question {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    /* שיפורים לתצוגה במובייל */
-    @media (max-width: 768px) {
-        .container {
-            padding: 10px;
-            padding-top: 80px;
-        }
-
-        .quiz-question {
-            padding: 10px;
-        }
-
-        .question-row {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .rating {
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            gap: 5px;
-            margin-top: 10px;
-            overflow-x: auto;
-            padding: 10px 0;
-        }
-
-        .rating-option {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 8px;
-            cursor: pointer;
-            min-width: 60px;
-            text-align: center;
-        }
-
-        .rating-option:hover {
-            background: #e0e0e0;
-        }
-
-        .rating-value {
-            font-size: 1.2em;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .rating-label {
-            font-size: 0.8em;
-            color: #666;
-            text-align: center;
-            white-space: nowrap;
-        }
-
-        .rating-option input[type="radio"] {
-            margin: 5px 0;
-        }
-
-        /* Hide scrollbar but keep functionality */
-        .rating::-webkit-scrollbar {
-            display: none;
-        }
-        .rating {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        h3 {
-            font-size: 1em;
-            margin-bottom: 10px;
-            line-height: 1.4;
-        }
-
-        .navigation-buttons {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            padding: 15px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            z-index: 1000;
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-        }
-
-        .button {
-            flex: 1;
-            padding: 12px;
-            font-size: 1em;
-        }
-
-        /* מרווח בתחתית הדף בשביל הכפתורים */
-        .container {
-            padding-bottom: 80px;
-        }
-    }
-
-    /* Modal styles */
-    .modal {
-        position: fixed;
-        inset: 0;
-        background-color: rgba(0,0,0,0.5);
-        direction: rtl;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.3s ease, visibility 0.3s ease;
-    }
-
-    @media (max-width: 768px) {
-        .modal-content {
-            width: 95%;
-            max-height: 90vh;
-            overflow-y: auto;
-            margin: 20px;
-            padding: 20px;
-        }
-    }
-
-    .modal.show {
-        opacity: 1;
-        visibility: visible;
-    }
-
-    .modal-content {
-        background-color: #fefefe;
-        padding: 30px;
-        border-radius: 10px;
-        width: 90%;
-        max-width: 600px;
-        position: relative;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transform: translateY(-20px);
-        transition: transform 0.3s ease;
-    }
-
-    .modal.show .modal-content {
-        transform: translateY(0);
-    }
-
-    .close-modal {
-        position: absolute;
-        left: 20px;
-        top: 20px;
-        font-size: 28px;
-        font-weight: bold;
-        color: #666;
-        cursor: pointer;
-        line-height: 1;
-        padding: 0 10px;
-    }
-
-    .close-modal:hover {
-        color: #000;
-    }
-
-    /* Navigation buttons */
-    .navigation-buttons {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 20px;
-        gap: 10px;
-    }
-
-    .button {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 1em;
-        transition: all 0.3s ease;
-    }
-
-    .button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    #prevButton, #nextButton {
-        background-color: #2196F3;
-        color: white;
-    }
-
-    #submitButton {
-        background-color: #4CAF50;
-        color: white;
-    }
-
-    .button:not(:disabled):hover {
-        transform: translateY(-2px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
-    #prevButton:not(:disabled):hover,
-    #nextButton:not(:disabled):hover {
-        background-color: #1976D2;
-    }
-
-    #submitButton:not(:disabled):hover {
-        background-color: #45a049;
-    }
-
-    /* Results table styles */
-    .modal h2 {
-        margin: 0 0 20px 0;
-        color: #333;
-        font-size: 1.5em;
-        text-align: center;
-    }
-
-    .modal table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 20px 0;
-        direction: rtl;
-        background: white;
-    }
-
-    .modal th,
-    .modal td {
-        padding: 15px;
-        text-align: right;
-        border: 1px solid #ddd;
-    }
-
-    .modal th {
-        background-color: #f8f9fa;
-        font-weight: bold;
-    }
-
-    .modal tr.highest-score {
-        background-color: #e8f5e9;
-    }
-
-    #primaryStyle,
-    #secondaryStyle {
-        margin: 15px 0;
-        font-size: 1.2em;
-        text-align: center;
-    }
-
-    #primaryStyle {
-        color: #2196F3;
-        font-weight: bold;
-    }
-
-    #secondaryStyle {
-        color: #4CAF50;
-    }
-</style>
-
-{% endblock %}
-
-{% block scripts %}
 {% endblock %}
