@@ -83,7 +83,9 @@ class User(UserMixin, db.Model):
     completed_videos = db.Column(db.Text, default='')
     progress = db.Column(db.Integer, default=0)
     is_admin = db.Column(db.Boolean, default=False)
-    quiz_completed = db.Column(db.Boolean, default=False)
+
+    def has_completed_quiz(self):
+        return self.quiz_answers is not None and len(self.quiz_answers) > 0
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -581,14 +583,12 @@ def course():
     
     # אם המשתמש סיים את כל הפרקים, נסמן זאת
     if current_user.progress == 100:
-        current_user.course_completed = True
         db.session.commit()
     
     return render_template('course.html', 
                          videos=VIDEOS,
                          completed_videos=current_user.completed_videos.split(',') if current_user.completed_videos else [],
-                         progress=current_user.progress,
-                         course_completed=getattr(current_user, 'course_completed', False))
+                         progress=current_user.progress)
 
 @app.route('/mark_complete/<video_id>', methods=['POST'])
 @login_required
@@ -684,8 +684,7 @@ def reset_progress():
     try:
         user = User.query.filter_by(email=current_user.email).first()
         user.completed_videos = []
-        user.quiz_completed = False
-        user.quiz_results = None
+        user.quiz_answers = {}
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -698,7 +697,7 @@ def reset_progress():
 def quiz():
     user = User.query.filter_by(email=current_user.email).first()
     try:
-        if not user.quiz_completed:
+        if not user.has_completed_quiz():
             return render_template('quiz.html')
     except:
         return render_template('quiz.html')
@@ -716,10 +715,6 @@ def submit_quiz():
         
         # שמירת התשובות בדאטהבייס
         current_user.quiz_answers = answers
-        try:
-            current_user.quiz_completed = True
-        except:
-            pass
         db.session.commit()
         
         return jsonify({'status': 'success', 'redirect': url_for('quiz_results')})
@@ -731,7 +726,7 @@ def submit_quiz():
 @app.route('/quiz_results')
 @login_required
 def quiz_results():
-    if not current_user.quiz_answers:
+    if not current_user.has_completed_quiz():
         return redirect(url_for('quiz'))
     
     # מקבל את התשובות מהדאטהבייס
@@ -760,13 +755,6 @@ def quiz_results():
         reverse=True
     )
 
-    # מסמן שהמשתמש סיים את השאלון
-    try:
-        current_user.quiz_completed = True
-        db.session.commit()
-    except:
-        pass
-    
     return render_template('quiz_results.html', results=sorted_types)
 
 def get_question_type(q_num):
@@ -943,7 +931,7 @@ def update_prices():
 def get_statistics():
     try:
         total_users = User.query.count()
-        completed_users = User.query.filter_by(course_completed=True).count()
+        completed_users = User.query.filter_by(progress=100).count()
         completion_rate = (completed_users / total_users * 100) if total_users > 0 else 0
         
         # פילוח סוגי אכילה
@@ -959,7 +947,7 @@ def get_statistics():
         }
         
         # אחוזי הקלקה על וואצאפ
-        whatsapp_clicks = User.query.filter_by(clicked_whatsapp=True, course_completed=True).count()
+        whatsapp_clicks = User.query.filter_by(clicked_whatsapp=True, progress=100).count()
         whatsapp_rate = (whatsapp_clicks / completed_users * 100) if completed_users > 0 else 0
         
         return jsonify({
