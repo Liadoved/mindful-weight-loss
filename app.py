@@ -697,7 +697,10 @@ def reset_progress():
 @login_required
 def quiz():
     user = User.query.filter_by(email=current_user.email).first()
-    if not user.quiz_answers:
+    try:
+        if not user.quiz_completed:
+            return render_template('quiz.html')
+    except:
         return render_template('quiz.html')
     return redirect(url_for('quiz_results'))
 
@@ -713,7 +716,10 @@ def submit_quiz():
         
         # שמירת התשובות בדאטהבייס
         current_user.quiz_answers = answers
-        current_user.quiz_completed = True
+        try:
+            current_user.quiz_completed = True
+        except:
+            pass
         db.session.commit()
         
         return jsonify({'status': 'success', 'redirect': url_for('quiz_results')})
@@ -755,8 +761,11 @@ def quiz_results():
     )
 
     # מסמן שהמשתמש סיים את השאלון
-    current_user.quiz_completed = True
-    db.session.commit()
+    try:
+        current_user.quiz_completed = True
+        db.session.commit()
+    except:
+        pass
     
     return render_template('quiz_results.html', results=sorted_types)
 

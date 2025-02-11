@@ -2,8 +2,8 @@ services:
   - type: web
     name: mindful-weight-loss
     env: python
-    buildCommand: pip install -r requirements.txt && flask db upgrade
-    startCommand: gunicorn -c gunicorn.conf.py app:app
+    buildCommand: pip install -r requirements.txt
+    startCommand: flask db upgrade && gunicorn -c gunicorn.conf.py app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
