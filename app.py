@@ -327,37 +327,39 @@ def send_registration_email(email, username, password, user_data, is_admin=False
         return False
 
 oauth = OAuth(app)
+google = None
 
-google = oauth.remote_app(
-    'google',
-    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
-    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    request_token_params={
-        'scope': ['email', 'profile'],
-        'access_type': 'offline',
-        'include_granted_scopes': 'true'
-    },
-    base_url='https://www.googleapis.com/oauth2/v2/',
-    request_token_url=None,
-    access_token_method='POST',
-    access_token_url='https://accounts.google.com/o/oauth2/token',
-    authorize_url='https://accounts.google.com/o/oauth2/auth',
-)
+if os.environ.get('GOOGLE_CLIENT_ID') and os.environ.get('GOOGLE_CLIENT_SECRET'):
+    google = oauth.remote_app(
+        'google',
+        consumer_key=os.environ.get('GOOGLE_CLIENT_ID'),
+        consumer_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+        request_token_params={
+            'scope': 'email'
+        },
+        base_url='https://www.googleapis.com/oauth2/v1/',
+        request_token_url=None,
+        access_token_method='POST',
+        access_token_url='https://accounts.google.com/o/oauth2/token',
+        authorize_url='https://accounts.google.com/o/oauth2/auth',
+    )
 
-@google.tokengetter
-def get_google_oauth_token():
-    if 'google_token' in session:
+    @google.tokengetter
+    def get_google_oauth_token():
         return session.get('google_token')
-    return None
 
 @app.route('/login/google')
 def google_login():
-    # Clear any existing session data
-    session.pop('google_token', None)
+    if not google:
+        flash('Google login is not configured.', 'error')
+        return redirect(url_for('login'))
     return google.authorize(callback=url_for('google_authorized', _external=True))
 
 @app.route('/login/google/authorized')
 def google_authorized():
+    if not google:
+        flash('Google login is not configured.', 'error')
+        return redirect(url_for('login'))
     try:
         resp = google.authorized_response()
         if resp is None or resp.get('access_token') is None:
@@ -695,7 +697,7 @@ def reset_progress():
 @login_required
 def quiz():
     user = User.query.filter_by(email=current_user.email).first()
-    if not user.quiz_completed:
+    if not user.quiz_answers:
         return render_template('quiz.html')
     return redirect(url_for('quiz_results'))
 
@@ -709,52 +711,21 @@ def submit_quiz():
         data = request.get_json()
         answers = data.get('answers', {})
         
-        # חישוב התוצאות
-        eating_types = {
-            'a': {'name': 'אכלנית רגשית', 'score': 0},
-            'b': {'name': 'אכלנית בגדול', 'score': 0},
-            'c': {'name': 'אכלנית המרצה', 'score': 0},
-            'd': {'name': 'אכלנית מכורה', 'score': 0},
-            'e': {'name': 'אכלנית עצלנית', 'score': 0},
-            'f': {'name': 'אכלנית חולת שליטה', 'score': 0}
-        }
-        
-        for q, a in answers.items():
-            q_num = int(q)
-            answer = int(a)
-            
-            if not (1 <= answer <= 5):
-                return jsonify({'error': f'תשובה לא חוקית לשאלה {q_num}'}), 400
-            
-            if q_num in [1, 3, 5, 7, 9]:
-                eating_types['a']['score'] += answer
-            elif q_num in [2, 4, 6, 8, 10]:
-                eating_types['b']['score'] += answer
-        
-        # קביעת הסוג
-        max_score = max(eating_types.values(), key=lambda x: x['score'])
-        difficulty = list(eating_types.keys()).index(max_score['name']) + 1
-
-        # שמירת התוצאות
-        user = User.query.filter_by(email=current_user.email).first()
-        user.difficulty = difficulty
-        user.quiz_answers = answers
-        user.quiz_completed = True
+        # שמירת התשובות בדאטהבייס
+        current_user.quiz_answers = answers
+        current_user.quiz_completed = True
         db.session.commit()
+        
+        return jsonify({'status': 'success', 'redirect': url_for('quiz_results')})
 
-        return jsonify({
-            'success': True,
-            'difficulty': difficulty,
-            'redirect_url': url_for('quiz_results')
-        })
-
-    except ValueError as e:
-        return jsonify({'error': 'ערך לא חוקי באחת התשובות'}), 400
+    except Exception as e:
+        app.logger.error(f'שגיאה בתהליך השאלון: {str(e)}')
+        return jsonify({'error': 'שגיאה בתהליך השאלון'}), 500
 
 @app.route('/quiz_results')
 @login_required
 def quiz_results():
-    if not current_user.quiz_completed:
+    if not current_user.quiz_answers:
         return redirect(url_for('quiz'))
     
     # מקבל את התשובות מהדאטהבייס
@@ -782,6 +753,10 @@ def quiz_results():
         key=lambda x: x['score'],
         reverse=True
     )
+
+    # מסמן שהמשתמש סיים את השאלון
+    current_user.quiz_completed = True
+    db.session.commit()
     
     return render_template('quiz_results.html', results=sorted_types)
 

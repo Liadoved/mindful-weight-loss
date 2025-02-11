@@ -2,12 +2,30 @@ services:
   - type: web
     name: mindful-weight-loss
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    buildCommand: pip install -r requirements.txt && flask db upgrade
+    startCommand: gunicorn -c gunicorn.conf.py app:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.0
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mindful-weight-loss-db
+          property: connectionString
+      - key: FLASK_APP
+        value: app.py
       - key: SECRET_KEY
         generateValue: true
-      - key: FLASK_ENV
-        value: production
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+databases:
+  - name: mindful-weight-loss-db
+    databaseName: mindful_weight_loss
+    user: mindful_weight_loss
+    plan: free
