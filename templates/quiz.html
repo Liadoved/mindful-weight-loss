@@ -1,80 +1,395 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header text-center">
-                    <h2>שאלון אבחון סוג האכלנית שבך</h2>
-                    <p class="text-muted">* השאלון כתוב בלשון נקבה אך מיועד לשני המינים</p>
+<div class="quiz-container">
+    <div class="quiz-content">
+        <h1>שאלון אבחון סוג האכלנית שבך</h1>
+        <div class="quiz-description">
+            <p>* השאלון כתוב בלשון נקבה אך מיועד לשני המינים</p>
+            <p>דרגי כל היגד מ-1 עד 5, כאשר:</p>
+            <div class="rating-legend">
+                <div class="legend-item">
+                    <span class="rating-number">1</span>
+                    <span class="rating-text">אף פעם</span>
                 </div>
-                <div class="card-body">
-                    <form id="quizForm">
-                        <div class="questions">
-                            {% for i in range(1, 37) %}
-                            <div class="question">
-                                <p>{{ i }}. {{ questions[i] }}</p>
-                                <div class="form-check">
-                                    <input type="radio" name="{{ i }}" value="1" required>
-                                    <label>1 - אף פעם</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="radio" name="{{ i }}" value="2">
-                                    <label>2 - לעיתים רחוקות</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="radio" name="{{ i }}" value="3">
-                                    <label>3 - לפעמים</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="radio" name="{{ i }}" value="4">
-                                    <label>4 - לעיתים קרובות</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="radio" name="{{ i }}" value="5">
-                                    <label>5 - תמיד</label>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <button type="submit" class="btn btn-primary mt-3">שלח תשובות</button>
-                    </form>
+                <div class="legend-item">
+                    <span class="rating-number">5</span>
+                    <span class="rating-text">תמיד</span>
                 </div>
             </div>
         </div>
+
+        <form id="quizForm" onsubmit="return false;">
+            <div class="questions-page"></div>
+            <div class="navigation-buttons">
+                <button type="button" id="prevButton" class="button">הקודם</button>
+                <button type="button" id="nextButton" class="button">הבא</button>
+                <button type="submit" id="submitButton" class="button">סיום</button>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="quizProgress" class="progress"></div>
+                </div>
+                <div id="progressText"></div>
+            </div>
+        </form>
     </div>
 </div>
 
-<script>
-document.getElementById('quizForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    let answers = {};
-    for (let i = 1; i <= 36; i++) {
-        const selectedOption = document.querySelector(`input[name="${i}"]:checked`);
-        if (selectedOption) {
-            answers[i] = selectedOption.value;
+<style>
+    /* Basic styles */
+    body {
+        position: relative;
+        min-height: 100vh;
+    }
+
+    .quiz-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        padding-top: 120px; /* מרווח מוגדל מהנאבבר */
+        position: relative;
+    }
+
+    .quiz-content {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    /* שיפורים לתצוגה במובייל */
+    @media (max-width: 768px) {
+        .quiz-container {
+            padding: 10px;
+            padding-top: 100px; /* מרווח מוגדל מהנאבבר במובייל */
+        }
+
+        .quiz-content {
+            padding: 10px;
+        }
+
+        .question-row {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .rating {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            gap: 5px;
+            margin-top: 10px;
+            overflow-x: auto;
+            padding: 10px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .rating-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            cursor: pointer;
+            min-width: 60px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .rating-option:hover {
+            background: #e0e0e0;
+        }
+
+        .rating-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .rating-label {
+            font-size: 0.8em;
+            color: #666;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .rating-option input[type="radio"] {
+            margin: 5px 0;
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .rating::-webkit-scrollbar {
+            display: none;
+        }
+        .rating {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        h3 {
+            font-size: 1em;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .navigation-buttons {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .button {
+            flex: 1;
+            padding: 12px;
+            font-size: 1em;
+        }
+
+        /* מרווח בתחתית הדף בשביל הכפתורים */
+        .quiz-container {
+            padding-bottom: 80px;
         }
     }
-    
-    fetch('/submit_quiz', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ answers: answers })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.redirect) {
-            window.location.href = data.redirect;
+
+    /* Navigation buttons */
+    .navigation-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+        gap: 10px;
+    }
+
+    .button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1em;
+        transition: all 0.3s ease;
+    }
+
+    .button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    #prevButton, #nextButton {
+        background-color: #2196F3;
+        color: white;
+    }
+
+    #submitButton {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .button:not(:disabled):hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    #prevButton:not(:disabled):hover,
+    #nextButton:not(:disabled):hover {
+        background-color: #1976D2;
+    }
+
+    #submitButton:not(:disabled):hover {
+        background-color: #45a049;
+    }
+
+    /* Progress bar */
+    .progress-container {
+        margin-top: 20px;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 10px;
+        background-color: #f0f0f0;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+
+    .progress {
+        height: 100%;
+        background-color: #4CAF50;
+        transition: width 0.3s ease;
+    }
+
+    #progressText {
+        text-align: center;
+        margin-top: 10px;
+        color: #666;
+    }
+</style>
+
+<script>
+    let currentPage = 0;
+    const questionsPerPage = 6;
+
+    const questions = [
+        { id: 1, text: "האם את אוכלת כשאת עצובה או מדוכאת?" },
+        { id: 2, text: "האם את אוכלת כמויות גדולות של אוכל בישיבה אחת?" },
+        { id: 3, text: "האם את מרגישה שאת אוכלת מתוך שעמום?" },
+        { id: 4, text: "האם את מרגישה תלות באוכל מסוים?" },
+        { id: 5, text: "האם את אוכלת כשאת לחוצה או חרדה?" },
+        { id: 6, text: "האם את מרגישה שאת חייבת לסיים את כל האוכל בצלחת?" },
+        { id: 7, text: "האם את אוכלת מתוך עצלנות?" },
+        { id: 8, text: "האם את מרגישה שאת מאבדת שליטה באכילה?" },
+        { id: 9, text: "האם את מרגישה דחף לאכול כשאת מתוסכלת?" },
+        { id: 10, text: "האם את מרגישה שאת חייבת לאכול כל הזמן?" },
+        { id: 11, text: "האם את אוכלת כשאת כועסת?" },
+        { id: 12, text: "האם את אוכלת מנות גדולות יותר מאחרים?" },
+        { id: 13, text: "האם את אוכלת מתוך בדידות?" },
+        { id: 14, text: "האם יש לך קושי לעצור את האכילה?" },
+        { id: 15, text: "האם את אוכלת כשאת מרגישה חוסר אונים?" },
+        { id: 16, text: "האם את מרגישה אשמה אחרי שאכלת יותר מדי?" },
+        { id: 17, text: "האם את אוכלת כשאת עייפה?" },
+        { id: 18, text: "האם את מרגישה שאת לא יכולה להתאפק מלאכול?" },
+        { id: 19, text: "האם את אוכלת כשאת מאוכזבת?" },
+        { id: 20, text: "האם את ממשיכה לאכול גם כשאת שבעה?" },
+        { id: 21, text: "האם את אוכלת כשאת מרגישה חוסר מוטיבציה?" },
+        { id: 22, text: "האם את מרגישה תסכול כשאת לא יכולה לאכול משהו שאת רוצה?" },
+        { id: 23, text: "האם את אוכלת כשאת מרגישה חוסר אנרגיה?" },
+        { id: 24, text: "האם את מרגישה שאת לא יכולה לשלוט בכמות האוכל שאת אוכלת?" },
+        { id: 25, text: "האם את אוכלת כשאת מרגישה חרדה?" },
+        { id: 26, text: "האם את אוכלת מהר יותר מאחרים?" },
+        { id: 27, text: "האם את אוכלת כשאת משועממת?" },
+        { id: 28, text: "האם את חושבת על אוכל רוב הזמן?" },
+        { id: 29, text: "האם את אוכלת כשאת מרגישה עומס?" },
+        { id: 30, text: "האם את מרגישה שאת לא יכולה להפסיק לאכול ברגע שהתחלת?" },
+        { id: 31, text: "האם את אוכלת כשאת מרגישה לחץ?" },
+        { id: 32, text: "האם את אוכלת כמויות גדולות של אוכל בזמן קצר?" },
+        { id: 33, text: "האם את אוכלת כשאת מרגישה חוסר סיפוק?" },
+        { id: 34, text: "האם את מרגישה דחף בלתי נשלט לאכול?" },
+        { id: 35, text: "האם את אוכלת כשאת מרגישה חוסר מנוחה?" },
+        { id: 36, text: "האם את מרגישה שאת מאבדת שליטה על האכילה שלך?" }
+    ];
+
+    function showQuestionsPage(pageIndex) {
+        const startIndex = pageIndex * questionsPerPage;
+        const endIndex = startIndex + questionsPerPage;
+        const pageQuestions = questions.slice(startIndex, endIndex);
+        const form = document.querySelector('.questions-page');
+        
+        form.innerHTML = pageQuestions.map((question, index) => `
+            <div class="question-row">
+                <div class="question">
+                    <h3>${question.text}</h3>
+                    <div class="rating">
+                        ${[1, 2, 3, 4, 5].map(value => `
+                            <label class="rating-option">
+                                <input type="radio" name="q${question.id}" value="${value}" 
+                                       ${question.selectedAnswer === value ? 'checked' : ''}
+                                       onchange="handleAnswerChange(${question.id}, ${value})">
+                                <span class="rating-value">${value}</span>
+                                ${value === 1 ? '<span class="rating-label">אף פעם</span>' : ''}
+                                ${value === 5 ? '<span class="rating-label">תמיד</span>' : ''}
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // עדכון כפתורי ניווט
+        document.getElementById('prevButton').style.display = pageIndex > 0 ? 'block' : 'none';
+        document.getElementById('nextButton').style.display = pageIndex < Math.ceil(questions.length / questionsPerPage) - 1 ? 'block' : 'none';
+        document.getElementById('submitButton').style.display = pageIndex === Math.ceil(questions.length / questionsPerPage) - 1 ? 'block' : 'none';
+
+        // עדכון סרגל התקדמות
+        const progress = ((pageIndex + 1) / Math.ceil(questions.length / questionsPerPage)) * 100;
+        document.getElementById('quizProgress').style.width = `${progress}%`;
+        document.getElementById('progressText').textContent = `עמוד ${pageIndex + 1} מתוך ${Math.ceil(questions.length / questionsPerPage)}`;
+
+        checkPageCompletion();
+    }
+
+    function handleAnswerChange(questionId, value) {
+        const question = questions.find(q => q.id === questionId);
+        if (question) {
+            question.selectedAnswer = value;
+            checkPageCompletion();
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('שגיאה בשליחת השאלון. אנא נסה שוב.');
+    }
+
+    function checkPageCompletion() {
+        const startIndex = currentPage * questionsPerPage;
+        const endIndex = startIndex + questionsPerPage;
+        const pageQuestions = questions.slice(startIndex, endIndex);
+        
+        const isPageComplete = pageQuestions.every(question => question.selectedAnswer !== undefined);
+        
+        if (currentPage === Math.ceil(questions.length / questionsPerPage) - 1) {
+            document.getElementById('submitButton').disabled = !isPageComplete;
+        } else {
+            document.getElementById('nextButton').disabled = !isPageComplete;
+        }
+    }
+
+    function submitQuiz() {
+        // בדיקה שכל השאלות נענו
+        const allAnswered = questions.every(q => q.selectedAnswer !== undefined);
+        if (!allAnswered) {
+            alert('אנא עני על כל השאלות לפני שליחת השאלון');
+            return;
+        }
+
+        // הכנת התשובות לשליחה
+        const answers = {};
+        questions.forEach(q => {
+            answers[q.id] = q.selectedAnswer;
+        });
+
+        // שליחת התשובות לשרת
+        fetch('/submit_quiz', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ answers: answers })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('שגיאה בשליחת השאלון. אנא נסי שוב.');
+        });
+    }
+
+    // אתחול השאלון
+    document.addEventListener('DOMContentLoaded', () => {
+        showQuestionsPage(currentPage);
+
+        // הוספת מאזינים לכפתורים
+        document.getElementById('submitButton').addEventListener('click', submitQuiz);
+
+        document.getElementById('nextButton').addEventListener('click', () => {
+            currentPage++;
+            showQuestionsPage(currentPage);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        document.getElementById('prevButton').addEventListener('click', () => {
+            currentPage--;
+            showQuestionsPage(currentPage);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
     });
-});
 </script>
 {% endblock %}

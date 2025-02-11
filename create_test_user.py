@@ -1,19 +1,17 @@
 from app import app, db, User
 from werkzeug.security import generate_password_hash
+from datetime import datetime, timezone
 
 # יצירת משתמש אדמין
 admin_user = User(
     username='admin',
     email='admin@razit.co.il',
-    password_hash=generate_password_hash('Aa123456!'),
+    password_hash=generate_password_hash('Razit123321'),
     full_name='מנהל המערכת',
-    age=30,
-    gender='other',
-    address='',
-    city='',
     phone='',
+    gender='other',
+    registration_date=datetime.now(timezone.utc),
     difficulty=0,
-    comments='משתמש אדמין',
     is_admin=True
 )
 
