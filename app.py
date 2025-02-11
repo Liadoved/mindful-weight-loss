@@ -92,8 +92,11 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         if not self.password_hash:
+            app.logger.warning(f'אין סיסמה מוגדרת למשתמש: {self.username}')
             return False
-        return check_password_hash(self.password_hash, password)
+        result = check_password_hash(self.password_hash, password)
+        app.logger.info(f'בדיקת סיסמה למשתמש {self.username}: {"תקין" if result else "שגוי"}')
+        return result
 
     def get_eating_type(self):
         types = {
@@ -522,6 +525,8 @@ def login():
             password = request.form.get('password', '').strip()
             remember = request.form.get('remember', False)
 
+            app.logger.info(f'ניסיון התחברות עם: {username_or_email}')
+
             if not username_or_email or not password:
                 flash('נא למלא את כל השדות', 'error')
                 return redirect(url_for('login'))
@@ -533,12 +538,13 @@ def login():
             ).first()
             
             if not user:
-                app.logger.warning(f'ניסיון התחברות כושל - משתמש לא קיים: {username_or_email}')
+                app.logger.warning(f'משתמש לא נמצא: {username_or_email}')
                 flash('שם משתמש או סיסמה שגויים', 'error')
                 return redirect(url_for('login'))
 
+            app.logger.info(f'משתמש נמצא: {user.username}, בדיקת סיסמה...')
             if not user.check_password(password):
-                app.logger.warning(f'ניסיון התחברות כושל - סיסמה שגויה: {username_or_email}')
+                app.logger.warning(f'סיסמה שגויה למשתמש: {user.username}')
                 flash('שם משתמש או סיסמה שגויים', 'error')
                 return redirect(url_for('login'))
 
@@ -548,15 +554,15 @@ def login():
                 db.session.commit()
             except Exception as e:
                 app.logger.error(f'שגיאה בעדכון זמן התחברות אחרון: {str(e)}')
-                # לא נחזיר שגיאה למשתמש כי ההתחברות עצמה הצליחה
 
             login_user(user, remember=remember)
-            app.logger.info(f'התחברות מוצלחת: {username_or_email}')
+            app.logger.info(f'התחברות מוצלחת: {user.username} (אדמין: {user.is_admin})')
 
             # הפניה לדף המבוקש או לדף הבית
             next_page = request.args.get('next')
             if not next_page or urlparse(next_page).netloc != '':
                 next_page = url_for('admin') if user.is_admin else url_for('index')
+            
             return redirect(next_page)
 
         except Exception as e:
@@ -1082,6 +1088,23 @@ def reset_quiz():
         db.session.rollback()
         flash('אירעה שגיאה באיפוס השאלון', 'error')
         return redirect(url_for('quiz_results'))
+
+@app.route('/check_users')
+def check_users():
+    try:
+        users = User.query.all()
+        result = []
+        for user in users:
+            result.append({
+                'username': user.username,
+                'email': user.email,
+                'is_admin': user.is_admin,
+                'has_password': bool(user.password_hash)
+            })
+        return jsonify(result)
+    except Exception as e:
+        app.logger.error(f'שגיאה בבדיקת משתמשים: {str(e)}')
+        return jsonify({'error': str(e)}), 500
 
 _is_db_initialized = False
 

@@ -1,13 +1,15 @@
 from app import app, db, User
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
+
+ADMIN_PASSWORD = 'Razit123321'
 
 # יצירת משתמשי אדמין
 admin_users = [
     User(
         username='admin',
         email='admin@razit.co.il',
-        password_hash=generate_password_hash('Razit123321'),
+        password_hash=generate_password_hash(ADMIN_PASSWORD),
         full_name='מנהל המערכת',
         phone='',
         gender='other',
@@ -18,7 +20,7 @@ admin_users = [
     User(
         username='razit.mindful',
         email='razit.mindful@gmail.com',
-        password_hash=generate_password_hash('Razit123321'),
+        password_hash=generate_password_hash(ADMIN_PASSWORD),
         full_name='מנהל המערכת',
         phone='',
         gender='other',
@@ -45,6 +47,17 @@ with app.app_context():
         if existing_admin is None:
             db.session.add(admin_user)
             db.session.commit()
-            print(f"Admin user {admin_user.username} created successfully!")
+            
+            # בדיקה שהמשתמש נוצר כראוי
+            created_user = User.query.filter_by(username=admin_user.username).first()
+            if created_user and created_user.check_password(ADMIN_PASSWORD):
+                print(f"Admin user {admin_user.username} created and verified successfully!")
+            else:
+                print(f"Warning: Admin user {admin_user.username} created but password verification failed!")
         else:
             print(f"Admin user {admin_user.username} already exists!")
+
+    # הצגת כל המשתמשים
+    print("\nCurrent users in database:")
+    for user in User.query.all():
+        print(f"Username: {user.username}, Email: {user.email}, Is Admin: {user.is_admin}, Has Password: {bool(user.password_hash)}")
