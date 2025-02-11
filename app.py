@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 import os
 from dotenv import load_dotenv
@@ -23,8 +23,12 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'default-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///users.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///users.db').replace('postgres://', 'postgresql://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -325,12 +329,14 @@ oauth = OAuth(app)
 
 google = oauth.remote_app(
     'google',
-    consumer_key=os.getenv('GOOGLE_CLIENT_ID', 'default_id'),  # פתרון זמני
-    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET', 'default_secret'),  # פתרון זמני
+    consumer_key=os.getenv('GOOGLE_CLIENT_ID'),
+    consumer_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
     request_token_params={
-        'scope': 'email'
+        'scope': ['email', 'profile'],
+        'access_type': 'offline',
+        'include_granted_scopes': 'true'
     },
-    base_url='https://www.googleapis.com/oauth2/v1/',
+    base_url='https://www.googleapis.com/oauth2/v2/',
     request_token_url=None,
     access_token_method='POST',
     access_token_url='https://accounts.google.com/o/oauth2/token',
@@ -339,10 +345,14 @@ google = oauth.remote_app(
 
 @google.tokengetter
 def get_google_oauth_token():
-    return session.get('google_token')
+    if 'google_token' in session:
+        return session.get('google_token')
+    return None
 
 @app.route('/login/google')
 def google_login():
+    # Clear any existing session data
+    session.pop('google_token', None)
     return google.authorize(callback=url_for('google_authorized', _external=True))
 
 @app.route('/login/google/authorized')
@@ -350,60 +360,67 @@ def google_authorized():
     try:
         resp = google.authorized_response()
         if resp is None or resp.get('access_token') is None:
-            app.logger.error('Access denied: reason=%s error=%s', 
-                request.args.get('error_reason'),
-                request.args.get('error_description'))
-            return 'Access denied: reason={} error={}'.format(
-                request.args.get('error_reason'),
-                request.args.get('error_description')
-            )
-        
+            error_reason = request.args.get('error_reason', 'unknown')
+            error_desc = request.args.get('error_description', 'No error description')
+            app.logger.error('Access denied: reason=%s error=%s', error_reason, error_desc)
+            flash('לא הצלחנו להתחבר עם גוגל. נא לנסות שוב.', 'error')
+            return redirect(url_for('login'))
+
         app.logger.info('Google response received: %s', resp)
         session['google_token'] = (resp['access_token'], '')
         app.logger.info('Access token saved to session')
         
-        me = google.get('userinfo')
-        if me.data is None:
-            app.logger.error('Failed to get user info from Google')
-            return 'Failed to get user info'
-        
-        app.logger.info('User info received: %s', me.data)
-        
         try:
-            user = User.query.filter_by(email=me.data['email']).first()
-            if user is None:
-                # יצירת משתמש חדש
-                username = me.data['email'].split('@')[0]
-                user = User(
-                    username=username,
-                    email=me.data['email'],
-                    registration_date=datetime.now(timezone.utc)
-                )
-                db.session.add(user)
-                db.session.commit()
-                app.logger.info('Created new user: %s', user.email)
-
-            # עדכון זמן התחברות אחרון
-            user.last_login = datetime.now(timezone.utc)
-            db.session.commit()
+            me = google.get('userinfo')
+            if me.data is None:
+                app.logger.error('Failed to get user info from Google')
+                flash('לא הצלחנו לקבל את פרטי המשתמש מגוגל. נא לנסות שוב.', 'error')
+                return redirect(url_for('login'))
             
-            login_user(user)
-            app.logger.info(f'התחברות מוצלחת: {me.data["email"]}')
+            app.logger.info('User info received: %s', me.data)
+            
+            try:
+                user = User.query.filter_by(email=me.data['email']).first()
+                if user is None:
+                    # יצירת משתמש חדש
+                    username = me.data['email'].split('@')[0]
+                    user = User(
+                        username=username,
+                        email=me.data['email'],
+                        registration_date=datetime.now(timezone.utc)
+                    )
+                    db.session.add(user)
+                    db.session.commit()
+                    app.logger.info('Created new user: %s', user.email)
 
-            # הפניה לדף המבוקש או לדף הבית
-            next_page = request.args.get('next')
-            if not next_page or urlparse(next_page).netloc != '':
-                next_page = url_for('admin') if user.is_admin else url_for('index')
-            return redirect(next_page)
+                # עדכון זמן התחברות אחרון
+                user.last_login = datetime.now(timezone.utc)
+                db.session.commit()
+                
+                login_user(user)
+                app.logger.info(f'התחברות מוצלחת: {me.data["email"]}')
+
+                # הפניה לדף המבוקש או לדף הבית
+                next_page = request.args.get('next')
+                if not next_page or urlparse(next_page).netloc != '':
+                    next_page = url_for('admin') if user.is_admin else url_for('index')
+                return redirect(next_page)
+
+            except Exception as e:
+                app.logger.error('Database error: %s', str(e))
+                db.session.rollback()
+                flash('אירעה שגיאה בשמירת פרטי המשתמש. נא לנסות שוב.', 'error')
+                return redirect(url_for('login'))
 
         except Exception as e:
-            app.logger.error('Database error: %s', str(e))
-            db.session.rollback()
-            return 'Error accessing database'
+            app.logger.error('Error getting user info: %s', str(e))
+            flash('אירעה שגיאה בקבלת פרטי המשתמש. נא לנסות שוב.', 'error')
+            return redirect(url_for('login'))
 
     except Exception as e:
         app.logger.error('Error in google_authorized: %s', str(e))
-        return str(e)
+        flash('אירעה שגיאה בתהליך ההתחברות. נא לנסות שוב.', 'error')
+        return redirect(url_for('login'))
 
 @app.route('/')
 def index():
