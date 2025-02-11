@@ -518,23 +518,27 @@ def login():
         
     if request.method == 'POST':
         try:
-            email = request.form.get('email', '').strip()
+            username_or_email = request.form.get('email', '').strip()
             password = request.form.get('password', '').strip()
             remember = request.form.get('remember', False)
 
-            if not email or not password:
+            if not username_or_email or not password:
                 flash('נא למלא את כל השדות', 'error')
                 return redirect(url_for('login'))
 
-            user = User.query.filter_by(email=email).first()
+            # חיפוש משתמש לפי אימייל או שם משתמש
+            user = User.query.filter(
+                (User.email == username_or_email) | 
+                (User.username == username_or_email)
+            ).first()
             
             if not user:
-                app.logger.warning(f'ניסיון התחברות כושל - משתמש לא קיים: {email}')
+                app.logger.warning(f'ניסיון התחברות כושל - משתמש לא קיים: {username_or_email}')
                 flash('שם משתמש או סיסמה שגויים', 'error')
                 return redirect(url_for('login'))
 
             if not user.check_password(password):
-                app.logger.warning(f'ניסיון התחברות כושל - סיסמה שגויה: {email}')
+                app.logger.warning(f'ניסיון התחברות כושל - סיסמה שגויה: {username_or_email}')
                 flash('שם משתמש או סיסמה שגויים', 'error')
                 return redirect(url_for('login'))
 
@@ -547,7 +551,7 @@ def login():
                 # לא נחזיר שגיאה למשתמש כי ההתחברות עצמה הצליחה
 
             login_user(user, remember=remember)
-            app.logger.info(f'התחברות מוצלחת: {email}')
+            app.logger.info(f'התחברות מוצלחת: {username_or_email}')
 
             # הפניה לדף המבוקש או לדף הבית
             next_page = request.args.get('next')
@@ -705,7 +709,7 @@ def quiz():
         4: 'האם את מרגישה תלות באוכל מסוים?',
         5: 'האם את אוכלת כשאת לחוצה או חרדה?',
         6: 'האם את מרגישה שאת חייבת לסיים את כל האוכל בצלחת?',
-        7: 'האם את אוכלת מתוך עצלנות?',
+        7: 'האם את מרגישה שאת אוכלת מתוך עצלנות?',
         8: 'האם את מרגישה שאת מאבדת שליטה באכילה?',
         9: 'האם את מרגישה דחף לאכול כשאת מתוסכלת?',
         10: 'האם את מרגישה שאת חייבת לאכול כל הזמן?',
@@ -1065,6 +1069,20 @@ def export_users():
         app.logger.error(f'שגיאה בייצוא משתמשים: {str(e)}')
         return jsonify({'error': 'שגיאה בייצוא המשתמשים'}), 500
 
+@app.route('/reset_quiz', methods=['POST'])
+@login_required
+def reset_quiz():
+    try:
+        current_user.quiz_answers = {}
+        db.session.commit()
+        flash('השאלון אופס בהצלחה', 'success')
+        return redirect(url_for('quiz'))
+    except Exception as e:
+        app.logger.error(f"Error resetting quiz: {str(e)}")
+        db.session.rollback()
+        flash('אירעה שגיאה באיפוס השאלון', 'error')
+        return redirect(url_for('quiz_results'))
+
 _is_db_initialized = False
 
 @app.before_request
@@ -1072,7 +1090,7 @@ def initialize_database():
     global _is_db_initialized
     if not _is_db_initialized:
         with app.app_context():
-            # יצירת הטבלאות אם הן לא קיימות
+            # יצירת הטבלאות
             db.create_all()
             
             # בדיקה אם העמודה quiz_answers קיימת

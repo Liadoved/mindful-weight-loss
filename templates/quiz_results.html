@@ -20,7 +20,9 @@
 
     <div class="navigation-buttons">
         <a href="/course" class="button next-button">המשך לקורס</a>
-        <a href="/quiz" class="button retry-button">חזור לשאלון</a>
+        <form action="/reset_quiz" method="POST" style="display: inline;">
+            <button type="submit" class="button retry-button">התחל שאלון מחדש</button>
+        </form>
     </div>
 </div>
 
