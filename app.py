@@ -362,72 +362,81 @@ def google_login():
 
 @app.route('/login/google/authorized')
 def google_authorized():
-    if not google:
-        flash('Google login is not configured.', 'error')
-        return redirect(url_for('login'))
     try:
         resp = google.authorized_response()
         if resp is None or resp.get('access_token') is None:
-            error_reason = request.args.get('error_reason', 'unknown')
-            error_desc = request.args.get('error_description', 'No error description')
-            app.logger.error('Access denied: reason=%s error=%s', error_reason, error_desc)
-            flash('לא הצלחנו להתחבר עם גוגל. נא לנסות שוב.', 'error')
+            app.logger.error('Access denied: reason=%s error=%s', 
+                request.args.get('error_reason'),
+                request.args.get('error_description')
+            )
+            flash('ההתחברות דרך Google נכשלה', 'error')
             return redirect(url_for('login'))
 
         app.logger.info('Google response received: %s', resp)
         session['google_token'] = (resp['access_token'], '')
         app.logger.info('Access token saved to session')
+
+        # קבלת מידע על המשתמש מגוגל
+        me = google.get('userinfo')
+        app.logger.info('User info received: %s', me.data)
+
+        email = me.data.get('email')
+        if not email:
+            flash('לא הצלחנו לקבל את כתובת האימייל שלך מ-Google', 'error')
+            return redirect(url_for('login'))
+
+        # חיפוש משתמש קיים
+        user = User.query.filter_by(email=email).first()
+
+        if user:
+            # עדכון זמן התחברות אחרון
+            user.last_login = datetime.now(timezone.utc)
+            db.session.commit()
+            login_user(user)
+            app.logger.info(f'התחברות מוצלחת דרך Google: {user.username} (אדמין: {user.is_admin})')
+            next_page = url_for('admin') if user.is_admin else url_for('index')
+            return redirect(next_page)
+
+        # יצירת משתמש חדש עם סיסמה אקראית
+        import secrets
+        random_password = secrets.token_urlsafe(32)
+        username = email.split('@')[0]
+        base_username = username
+        counter = 1
         
+        # בדיקה אם שם המשתמש כבר קיים ויצירת שם ייחודי אם צריך
+        while User.query.filter_by(username=username).first():
+            username = f"{base_username}{counter}"
+            counter += 1
+
+        new_user = User(
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(random_password),
+            registration_date=datetime.now(timezone.utc),
+            difficulty=0,
+            quiz_answers='{}',
+            completed_videos='',
+            progress=0,
+            is_admin=False  # משתמשים חדשים מגוגל אינם אדמינים
+        )
+
         try:
-            me = google.get('userinfo')
-            if me.data is None:
-                app.logger.error('Failed to get user info from Google')
-                flash('לא הצלחנו לקבל את פרטי המשתמש מגוגל. נא לנסות שוב.', 'error')
-                return redirect(url_for('login'))
-            
-            app.logger.info('User info received: %s', me.data)
-            
-            try:
-                user = User.query.filter_by(email=me.data['email']).first()
-                if user is None:
-                    # יצירת משתמש חדש
-                    username = me.data['email'].split('@')[0]
-                    user = User(
-                        username=username,
-                        email=me.data['email'],
-                        registration_date=datetime.now(timezone.utc)
-                    )
-                    db.session.add(user)
-                    db.session.commit()
-                    app.logger.info('Created new user: %s', user.email)
-
-                # עדכון זמן התחברות אחרון
-                user.last_login = datetime.now(timezone.utc)
-                db.session.commit()
-                
-                login_user(user)
-                app.logger.info(f'התחברות מוצלחת: {me.data["email"]}')
-
-                # הפניה לדף המבוקש או לדף הבית
-                next_page = request.args.get('next')
-                if not next_page or urlparse(next_page).netloc != '':
-                    next_page = url_for('admin') if user.is_admin else url_for('index')
-                return redirect(next_page)
-
-            except Exception as e:
-                app.logger.error('Database error: %s', str(e))
-                db.session.rollback()
-                flash('אירעה שגיאה בשמירת פרטי המשתמש. נא לנסות שוב.', 'error')
-                return redirect(url_for('login'))
+            db.session.add(new_user)
+            db.session.commit()
+            login_user(new_user)
+            app.logger.info(f'נוצר משתמש חדש דרך Google: {username}')
+            return redirect(url_for('index'))
 
         except Exception as e:
-            app.logger.error('Error getting user info: %s', str(e))
-            flash('אירעה שגיאה בקבלת פרטי המשתמש. נא לנסות שוב.', 'error')
+            app.logger.error(f'Database error: {str(e)}')
+            db.session.rollback()
+            flash('אירעה שגיאה ביצירת המשתמש', 'error')
             return redirect(url_for('login'))
 
     except Exception as e:
-        app.logger.error('Error in google_authorized: %s', str(e))
-        flash('אירעה שגיאה בתהליך ההתחברות. נא לנסות שוב.', 'error')
+        app.logger.error(f'Error in Google authorization: {str(e)}')
+        flash('אירעה שגיאה בהתחברות', 'error')
         return redirect(url_for('login'))
 
 @app.route('/')
