@@ -530,45 +530,54 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
-        
     if request.method == 'POST':
+        username_or_email = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        
+        app.logger.info(f'ניסיון התחברות עם שם משתמש/אימייל: {username_or_email}')
+        
+        if not username_or_email or not password:
+            app.logger.warning('שם משתמש או סיסמה ריקים')
+            flash('נא למלא את כל השדות', 'error')
+            return redirect(url_for('login'))
+        
+        # בדיקה אם המשתמש קיים
         try:
-            username_or_email = request.form.get('email', '').strip()
-            password = request.form.get('password', '').strip()
-            remember = request.form.get('remember', False)
-
-            app.logger.info(f'ניסיון התחברות עם: {username_or_email}')
-            
-            # חיפוש משתמש לפי אימייל או שם משתמש
-            user = User.query.filter(
-                (User.email == username_or_email) | 
-                (User.username == username_or_email)
-            ).first()
+            # חיפוש לפי שם משתמש
+            user = User.query.filter(User.username == username_or_email).first()
+            if not user:
+                # אם לא נמצא לפי שם משתמש, חפש לפי אימייל
+                user = User.query.filter(User.email == username_or_email).first()
             
             if user:
                 app.logger.info(f'נמצא משתמש: {user.username}, אדמין: {user.is_admin}, יש סיסמה: {bool(user.password_hash)}')
+                
+                # בדיקת סיסמה
                 if user.check_password(password):
-                    app.logger.info('סיסמה נכונה, מתחבר...')
+                    app.logger.info(f'סיסמה נכונה למשתמש {user.username}')
                     login_user(user)
                     user.last_login = datetime.utcnow()
                     db.session.commit()
-                    return redirect(url_for('index'))
+                    
+                    # הפניה לדף המבוקש או לדף הבית
+                    next_page = request.args.get('next')
+                    if not next_page or urlparse(next_page).netloc != '':
+                        next_page = url_for('admin') if user.is_admin else url_for('index')
+                    
+                    return redirect(next_page)
                 else:
-                    app.logger.warning('סיסמה שגויה')
-                    flash('שם משתמש או סיסמה שגויים', 'error')
+                    app.logger.warning(f'סיסמה שגויה למשתמש {user.username}')
             else:
-                app.logger.warning('משתמש לא נמצא')
-                flash('שם משתמש או סיסמה שגויים', 'error')
+                app.logger.warning(f'משתמש לא נמצא: {username_or_email}')
             
+            flash('שם משתמש או סיסמה שגויים', 'error')
             return redirect(url_for('login'))
-        
+            
         except Exception as e:
             app.logger.error(f'שגיאה בתהליך ההתחברות: {str(e)}')
-            flash('אירעה שגיאה. נא לנסות שוב מאוחר יותר.', 'error')
+            flash('אירעה שגיאה בתהליך ההתחברות. נא לנסות שוב.', 'error')
             return redirect(url_for('login'))
-
+    
     return render_template('login.html')
 
 @app.route('/logout')
@@ -600,19 +609,29 @@ def course():
                          progress=current_user.progress)
 
 def calculate_progress(completed_videos):
-    if not completed_videos:
+    if not completed_videos or completed_videos == '{}' or completed_videos == []:
         return 0
         
+    # אם זה מגיע כמחרוזת של רשימה או מילון, נקה אותה
+    if isinstance(completed_videos, str):
+        completed_videos = completed_videos.replace('{', '').replace('}', '').replace('[', '').replace(']', '')
+    
     # סך הכל 8 פרקים (7 פרקים + פרק ביניים)
     TOTAL_CHAPTERS = 8
     
     # המרת רשימת הסרטונים שהושלמו לפרקים ייחודיים
     completed_chapters = set()
-    for video in completed_videos.split(','):
-        if video:  # בדיקה שהמחרוזת לא ריקה
-            # מחלצים את מספר הפרק מתוך מזהה הסרטון
-            chapter = int(video.split('_')[0])
-            completed_chapters.add(chapter)
+    videos = completed_videos.split(',') if isinstance(completed_videos, str) else completed_videos
+    
+    for video in videos:
+        if video and video.strip():  # בדיקה שהמחרוזת לא ריקה
+            try:
+                # מחלצים את מספר הפרק מתוך מזהה הסרטון
+                chapter = int(video.strip().split('_')[0])
+                completed_chapters.add(chapter)
+            except (ValueError, IndexError) as e:
+                app.logger.error(f'שגיאה בפירוק מזהה סרטון: {video}, שגיאה: {str(e)}')
+                continue
     
     # חישוב האחוז לפי מספר הפרקים שהושלמו
     progress = (len(completed_chapters) / TOTAL_CHAPTERS) * 100
@@ -709,15 +728,15 @@ def contact():
 @login_required
 def reset_progress():
     try:
-        user = User.query.filter_by(email=current_user.email).first()
-        user.completed_videos = []
-        user.quiz_answers = {}
+        current_user.completed_videos = ''
+        current_user.progress = 0
+        current_user.has_completed_course = False
         db.session.commit()
-        return jsonify({'success': True})
+        app.logger.info(f'איפוס התקדמות למשתמש {current_user.username}')
+        return jsonify({'status': 'success'})
     except Exception as e:
-        app.logger.error(f"Error resetting progress: {str(e)}")
-        db.session.rollback()
-        return jsonify({'success': False, 'message': 'An error occurred'})
+        app.logger.error(f'שגיאה באיפוס התקדמות למשתמש {current_user.username}: {str(e)}')
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/quiz')
 @login_required
