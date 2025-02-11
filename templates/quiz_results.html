@@ -8,10 +8,14 @@
         <div class="score-explanation">
             <p>הציונים נעים בין 6 ל-30 נקודות לכל סגנון אכילה.</p>
             <p>ככל שהציון גבוה יותר, כך הנטייה לסגנון האכילה חזקה יותר.</p>
+            <p class="note">* לתשומת ליבך תוצאה זאת אינה קבועה ויכולה להשתנות</p>
         </div>
         <div id="resultsTable"></div>
         <div id="primaryStyle" class="style-result"></div>
         <div id="secondaryStyle" class="style-result"></div>
+        <div class="next-step-message">
+            <p>אני מזמינה אותך לצפות בפרק הבא ולגלות מה סוג האכלנית שלך אומר עליך</p>
+        </div>
     </div>
 
     <div class="navigation-buttons">
@@ -34,6 +38,26 @@
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         margin: 20px 0;
+    }
+
+    .score-explanation {
+        margin-bottom: 20px;
+    }
+
+    .score-explanation .note {
+        font-size: 0.9em;
+        color: #666;
+        font-style: italic;
+        margin-top: 10px;
+    }
+
+    .next-step-message {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #2196F3;
     }
 
     table {
@@ -101,73 +125,52 @@
     }
 
     .button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
-    .next-button:hover {
-        background-color: #45a049;
-    }
-
-    .retry-button:hover {
-        background-color: #1976D2;
+        opacity: 0.9;
+        transform: translateY(-1px);
     }
 </style>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const savedResults = localStorage.getItem('quizResults');
-        if (!savedResults) {
-            window.location.href = '/quiz';
-            return;
-        }
+    document.addEventListener('DOMContentLoaded', function() {
+        const results = {{ results|tojson|safe }};
+        const resultsTable = document.getElementById('resultsTable');
+        const primaryStyle = document.getElementById('primaryStyle');
+        const secondaryStyle = document.getElementById('secondaryStyle');
 
-        const results = JSON.parse(savedResults);
-        const styles = {
-            'a': 'אכילה רגשית',
-            'b': 'אכילת יתר',
-            'c': 'אכילה חברתית',
-            'd': 'אכילה אובססיבית',
-            'e': 'אכילה לא מודעת',
-            'f': 'אכילה נוקשה'
-        };
-
-        // יצירת טבלת תוצאות
+        // יצירת טבלת התוצאות
         let tableHTML = `
             <table>
-                <tr>
-                    <th>סגנון אכילה</th>
-                    <th>ציון (6-30)</th>
-                </tr>
+                <thead>
+                    <tr>
+                        <th>סוג אכלנית</th>
+                        <th>ציון</th>
+                    </tr>
+                </thead>
+                <tbody>
         `;
 
-        // מציאת הציון הגבוה ביותר
-        const maxScore = Math.max(...Object.values(results));
-
-        // יצירת שורות הטבלה
-        Object.entries(results).forEach(([type, score]) => {
-            const isHighest = score === maxScore;
+        results.forEach((result, index) => {
+            const isHighest = index === 0;
             tableHTML += `
                 <tr class="${isHighest ? 'highest-score' : ''}">
-                    <td>${styles[type]}</td>
-                    <td>${score}</td>
+                    <td>${result.name}</td>
+                    <td>${result.score}</td>
                 </tr>
             `;
         });
-        tableHTML += '</table>';
-        
-        document.getElementById('resultsTable').innerHTML = tableHTML;
 
-        // מציאת סגנון האכילה העיקרי והמשני
-        const sortedScores = Object.entries(results)
-            .sort((a, b) => b[1] - a[1]);
+        tableHTML += '</tbody></table>';
+        resultsTable.innerHTML = tableHTML;
 
-        document.getElementById('primaryStyle').textContent = 
-            `סגנון האכילה העיקרי שלך הוא: ${styles[sortedScores[0][0]]} (${sortedScores[0][1]} נקודות)`;
-
-        if (sortedScores[1][1] >= sortedScores[0][1] - 2) {
-            document.getElementById('secondaryStyle').textContent = 
-                `יש לך גם נטייה משמעותית לסגנון: ${styles[sortedScores[1][0]]} (${sortedScores[1][1]} נקודות)`;
+        // הצגת הסוגים הדומיננטיים
+        if (results.length > 0) {
+            primaryStyle.innerHTML = `הסוג הדומיננטי שלך הוא: ${results[0].name}`;
+            if (results.length > 1) {
+                secondaryStyle.innerHTML = `הסוג המשני שלך הוא: ${results[1].name}`;
+            }
         }
     });
 </script>

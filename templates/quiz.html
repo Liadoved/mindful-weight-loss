@@ -1,51 +1,371 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="quiz-container">
-    <div class="quiz-content">
-        <h1>איזו מין אכלנית את?</h1>
-        <div class="quiz-description">
-            <p>גלי את סגנון האכילה שלך דרך השאלון הקצר הזה.</p>
-            <p>דרגי כל היגד מ-1 עד 5, כאשר:</p>
-            <div class="rating-legend">
-                <div class="legend-item">
-                    <span class="rating-number">1</span>
-                    <span class="rating-text">מאוד לא מסכימה</span>
-                </div>
-                <div class="legend-item">
-                    <span class="rating-number">5</span>
-                    <span class="rating-text">מסכימה מאוד</span>
-                </div>
+<div class="container">
+    <h1 class="text-center mb-4">שאלון אכילה רגשית</h1>
+    <p class="text-center mb-4 small">* השאלון מנוסח בלשון נקבה אך מכוון לשני המינים</p>
+    <form id="quiz-form">
+        <div class="quiz-question">
+            <p>1. באיזו תדירות את/ה אוכל/ת כשאת/ה מרגיש/ה לחץ או חרדה?</p>
+            <div class="quiz-options">
+                {% for i in range(1, 6) %}
+                <div class="quiz-option" data-value="{{ i }}" onclick="selectOption(this, 1)">{{ i }}</div>
+                {% endfor %}
             </div>
         </div>
-
-        <form id="quizForm" onsubmit="return false;">
-            <div class="questions-page"></div>
-            <div class="navigation-buttons">
-                <button type="button" id="prevButton" class="button">הקודם</button>
-                <button type="button" id="nextButton" class="button">הבא</button>
-                <button type="submit" id="submitButton" class="button">סיום</button>
-            </div>
-            <div class="progress-container">
-                <div class="progress-bar">
-                    <div id="quizProgress" class="progress"></div>
-                </div>
-                <div id="progressText"></div>
-            </div>
-        </form>
-    </div>
+        {{ ... }}
+    </form>
 </div>
 
-<!-- מודל התוצאות -->
-<div id="completionModal" class="modal">
-    <div class="modal-content">
-        <span class="close-modal">&times;</span>
-        <h2>תוצאות השאלון</h2>
-        <div id="resultsTable"></div>
-        <div id="primaryStyle"></div>
-        <div id="secondaryStyle"></div>
-    </div>
-</div>
+<script>
+function selectOption(element, questionNumber) {
+    // מסיר את הבחירה הקודמת
+    const options = element.parentElement.getElementsByClassName('quiz-option');
+    Array.from(options).forEach(opt => opt.classList.remove('selected'));
+    
+    // מסמן את האופציה שנבחרה
+    element.classList.add('selected');
+    
+    // שומר את הערך
+    answers[questionNumber] = parseInt(element.dataset.value);
+    
+    // בודק אם כל השאלות נענו
+    checkAllAnswered();
+}
+
+function checkAllAnswered() {
+    const answeredCount = Object.keys(answers).length;
+    const submitButton = document.getElementById('submit-quiz');
+    if (answeredCount === totalQuestions) {
+        submitButton.disabled = false;
+    }
+}
+
+let currentPage = 0;
+const questionsPerPage = 6;
+
+const questions = [
+    { id: 1, text: "אני מנשנשת מאוחר בלילה לעיתים תכופות", type: "a" },
+    { id: 2, text: "לעיתים רחוקות אני משאירה משהו בצלחת", type: "b" },
+    { id: 3, text: "אני לא אוהבת לסרב למשהו שמישהו מבשל עבורי", type: "c" },
+    { id: 4, text: "אני חושבת על אוכל כמעט כל היום", type: "d" },
+    { id: 5, text: "אני אוכלת בחוץ יותר מפעם אחת בכל שבוע", type: "e" },
+    { id: 6, text: "אוכל עוזר לי להרגיש בשליטה על עולמי", type: "f" },
+    { id: 7, text: "כאשר אני שרויה במתח, אני אוכלת יותר", type: "a" },
+    { id: 8, text: "אני הולכת למסעדות בהן אני יודעת שאקבל מנה ראויה", type: "b" },
+    { id: 9, text: "כשאני בתוך מערכת יחסים, אני אוכלת יותר", type: "c" },
+    { id: 10, text: "אני אוכלת כל כך מהר, שאני לא מרגישה את הטעם של האוכל", type: "d" },
+    { id: 11, text: "אני שונאת לערוך קניות של אוכל", type: "e" },
+    { id: 12, text: "יש לי שגרה של אוכל שאני מעדיפה להיצמד אליה", type: "f" },
+    { id: 13, text: "אני אוכלת יותר כאשר אני לבד", type: "a" },
+    { id: 14, text: "לעיתים קרובות אני גומרת את הארוחה של אנשים אחרים. 'מנקה' את הצלחת שלהם", type: "b" },
+    { id: 15, text: "בן/בת זוגי אינו מבין מה אני הכי אוהבת לאכול", type: "c" },
+    { id: 16, text: "אני מתאווה לממתקים באופן קבוע", type: "d" },
+    { id: 17, text: "אני מתייחסת לאוכל כאל דלק לגוף", type: "e" },
+    { id: 18, text: "אני משתמשת בדרך שאני אוכלת כאמצעי לקבלת תגובה מהסובבים אותי", type: "f" },
+    { id: 19, text: "לעיתים קרובות אני מתחרטת על מה שאכלתי, מיד אחרי שאכלתי אותו", type: "a" },
+    { id: 20, text: "אני נהנית לאכול במסעדות מסוג 'אכול כפי יכולתך'", type: "b" },
+    { id: 21, text: "בן / בת זוגי עולה במשקל וכך גם אני", type: "c" },
+    { id: 22, text: "אני לא יודעת למה אני לא יורדת יותר במשקל", type: "d" },
+    { id: 23, text: "תמיד יש לי מלאי של ארוחות מוכנות בבית", type: "e" },
+    { id: 24, text: "יש לי שגרה של אוכל שאני מעדיפה להיצמד אליה", type: "f" },
+    { id: 25, text: "אני אוכלת כשאני מרגישה תחת לחץ", type: "a" },
+    { id: 26, text: "אני נהנית להרגיש מלאה", type: "b" },
+    { id: 27, text: "אני לא אוהבת שבן/ בת זוגי או חברים אוכלים לבד אז אני מצטרפת אליהם", type: "c" },
+    { id: 28, text: "יש מאכלים שאני לא יכולה להפסיק לאכול אותם ברגע שאני מתחילה", type: "d" },
+    { id: 29, text: "לעיתים רחוקות אני מבשלת משהו שהבישול שלו לוקח יותר מ - 10 דקות", type: "e" },
+    { id: 30, text: "אני נלחצת כאשר אינני יכולה להיצמד לשגרת האכילה שלי", type: "f" },
+    { id: 31, text: "אוכל גורם לי עונג", type: "a" },
+    { id: 32, text: "לעיתים רחוקות אני אומרת 'לא' כאשר שמים לי אוכל בצלחת", type: "b" },
+    { id: 33, text: "אני אוכלת יותר כשאני נמצאת בחברה", type: "c" },
+    { id: 34, text: "אני מרגישה שאני לא יכולה לשלוט באכילה שלי", type: "d" },
+    { id: 35, text: "אני מעדיפה לאכול מול הטלוויזיה", type: "e" },
+    { id: 36, text: "אני מקפידה על תזונה מאוד מסודרת", type: "f" }
+];
+
+function showQuestionsPage(pageIndex) {
+    const startIndex = pageIndex * questionsPerPage;
+    const endIndex = startIndex + questionsPerPage;
+    const pageQuestions = questions.slice(startIndex, endIndex);
+    const form = document.querySelector('.quiz-question');
+    
+    form.innerHTML = pageQuestions.map((question, index) => `
+        <p>${question.text}</p>
+        <div class="quiz-options">
+            ${[1, 2, 3, 4, 5].map(value => `
+                <div class="quiz-option" data-value="${value}" onclick="selectOption(this, ${startIndex + index + 1})">${value}</div>
+            `).join('')}
+        </div>
+    `).join('');
+
+    // עדכון כפתורי ניווט
+    document.getElementById('prevButton').style.display = pageIndex > 0 ? 'block' : 'none';
+    document.getElementById('nextButton').style.display = pageIndex < Math.ceil(questions.length / questionsPerPage) - 1 ? 'block' : 'none';
+    document.getElementById('submitButton').style.display = pageIndex === Math.ceil(questions.length / questionsPerPage) - 1 ? 'block' : 'none';
+
+    // עדכון סרגל התקדמות
+    const progress = ((pageIndex + 1) / Math.ceil(questions.length / questionsPerPage)) * 100;
+    document.getElementById('quizProgress').style.width = `${progress}%`;
+    document.getElementById('progressText').textContent = `דף ${pageIndex + 1} מתוך ${Math.ceil(questions.length / questionsPerPage)}`;
+
+    checkPageCompletion();
+}
+
+function handleAnswerChange(questionId, value) {
+    const question = questions.find(q => q.id === questionId);
+    if (question) {
+        question.selectedAnswer = value;
+        saveAnswersToStorage();
+        checkPageCompletion();
+    }
+}
+
+function checkPageCompletion() {
+    const startIndex = currentPage * questionsPerPage;
+    const endIndex = startIndex + questionsPerPage;
+    const pageQuestions = questions.slice(startIndex, endIndex);
+    
+    const isPageComplete = pageQuestions.every(question => question.selectedAnswer !== undefined);
+    
+    if (currentPage === Math.ceil(questions.length / questionsPerPage) - 1) {
+        document.getElementById('submitButton').disabled = !isPageComplete;
+    } else {
+        document.getElementById('nextButton').disabled = !isPageComplete;
+    }
+}
+
+function saveAnswersToStorage() {
+    const answers = questions.map(q => ({
+        id: q.id,
+        selectedAnswer: q.selectedAnswer
+    }));
+    localStorage.setItem('quizAnswers', JSON.stringify(answers));
+    localStorage.setItem('currentPage', currentPage.toString());
+}
+
+function loadAnswersFromStorage() {
+    const savedAnswers = localStorage.getItem('quizAnswers');
+    const savedPage = localStorage.getItem('currentPage');
+    
+    if (savedAnswers) {
+        const answers = JSON.parse(savedAnswers);
+        answers.forEach(answer => {
+            const question = questions.find(q => q.id === answer.id);
+            if (question) {
+                question.selectedAnswer = answer.selectedAnswer;
+            }
+        });
+    }
+    
+    if (savedPage) {
+        currentPage = parseInt(savedPage);
+    }
+}
+
+function clearAnswersFromStorage() {
+    localStorage.removeItem('quizAnswers');
+    localStorage.removeItem('currentPage');
+}
+
+function clearAllStorageData() {
+    localStorage.removeItem('quizAnswers');
+    localStorage.removeItem('currentPage');
+    localStorage.removeItem('quizResults');
+}
+
+function calculateResults() {
+    const results = {
+        'a': 0, // אכילה רגשית
+        'b': 0, // אכילת יתר
+        'c': 0, // אכילה חברתית
+        'd': 0, // אכילה אובססיבית
+        'e': 0, // אכילה לא מודעת
+        'f': 0  // אכילה נוקשה
+    };
+
+    // חישוב הסכום לכל סוג
+    questions.forEach(question => {
+        if (question.selectedAnswer) {
+            results[question.type] += question.selectedAnswer;
+        }
+    });
+
+    return results;
+}
+
+function showResults(results) {
+    console.log('showResults function called with:', results);
+    
+    const modal = document.getElementById('completionModal');
+    const resultsTable = document.getElementById('resultsTable');
+    const primaryStyle = document.getElementById('primaryStyle');
+    const secondaryStyle = document.getElementById('secondaryStyle');
+    
+    if (!modal || !resultsTable || !primaryStyle || !secondaryStyle) {
+        console.error('Required elements not found!');
+        return;
+    }
+
+    // יצירת טבלת תוצאות
+    let tableHTML = `
+        <table>
+            <tr>
+                <th>סגנון אכילה</th>
+                <th>ציון</th>
+            </tr>
+    `;
+
+    const styles = {
+        'a': 'אכילה רגשית',
+        'b': 'אכילת יתר',
+        'c': 'אכילה חברתית',
+        'd': 'אכילה אובססיבית',
+        'e': 'אכילה לא מודעת',
+        'f': 'אכילה נוקשה'
+    };
+
+    // מציאת הציון הגבוה ביותר
+    const maxScore = Math.max(...Object.values(results));
+
+    // יצירת שורות הטבלה
+    Object.entries(results).forEach(([type, score]) => {
+        const isHighest = score === maxScore;
+        tableHTML += `
+            <tr class="${isHighest ? 'highest-score' : ''}">
+                <td>${styles[type]}</td>
+                <td>${score}</td>
+            </tr>
+        `;
+    });
+    tableHTML += '</table>';
+    
+    resultsTable.innerHTML = tableHTML;
+
+    // מציאת סגנון האכילה העיקרי והמשני
+    const sortedScores = Object.entries(results)
+        .sort((a, b) => b[1] - a[1]);
+
+    primaryStyle.textContent = `סגנון האכילה העיקרי שלך הוא: ${styles[sortedScores[0][0]]}`;
+
+    if (sortedScores[1][1] >= sortedScores[0][1] - 2) {
+        secondaryStyle.textContent = `יש לך גם נטייה משמעותית לסגנון: ${styles[sortedScores[1][0]]}`;
+    } else {
+        secondaryStyle.textContent = '';
+    }
+
+    // מציג את המודל
+    document.body.style.overflow = 'hidden'; // מונע גלילה ברקע
+    modal.classList.add('show');
+}
+
+function submitQuiz() {
+    console.log('submitQuiz function called');
+    
+    // בדיקה שכל השאלות נענו
+    const allAnswered = questions.every(q => q.selectedAnswer !== undefined);
+    if (!allAnswered) {
+        alert('אנא ענה על כל השאלות לפני שליחת השאלון');
+        return;
+    }
+
+    const results = calculateResults();
+
+    // שמירת התוצאות ב-localStorage
+    localStorage.setItem('quizResults', JSON.stringify(results));
+    
+    // שליחת התוצאות לשרת ומעבר לדף התוצאות
+    fetch('/submit_quiz', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(results)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(() => {
+        // מעבר לדף התוצאות
+        window.location.href = '/quiz_results';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('אירעה שגיאה בשמירת התוצאות. אנא נסי שוב.');
+    });
+}
+
+// אתחול השאלון
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded');
+    
+    // איפוס כל הנתונים
+    clearAllStorageData();
+    
+    // טעינת תשובות קודמות
+    loadAnswersFromStorage();
+    
+    // טעינת תוצאות קודמות אם קיימות
+    const savedResults = localStorage.getItem('quizResults');
+    if (savedResults) {
+        console.log('Found saved results');
+        showResults(JSON.parse(savedResults));
+    }
+    
+    showQuestionsPage(currentPage);
+
+    // הוספת מאזינים לכפתורים
+    const submitButton = document.getElementById('submitButton');
+    const nextButton = document.getElementById('nextButton');
+    const prevButton = document.getElementById('prevButton');
+    const modal = document.getElementById('completionModal');
+    const closeBtn = document.querySelector('.close-modal');
+
+    if (!submitButton || !nextButton || !prevButton || !modal || !closeBtn) {
+        console.error('Required elements not found');
+        return;
+    }
+
+    submitButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        submitQuiz();
+    });
+
+    nextButton.addEventListener('click', () => {
+        saveAnswersToStorage();
+        currentPage++;
+        showQuestionsPage(currentPage);
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // גלילה לראש העמוד
+    });
+
+    prevButton.addEventListener('click', () => {
+        saveAnswersToStorage();
+        currentPage--;
+        showQuestionsPage(currentPage);
+    });
+
+    // סגירת המודל
+    const closeModal = () => {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    // מניעת סגירת המודל בלחיצה על תוכן המודל
+    modal.querySelector('.modal-content').addEventListener('click', (event) => {
+        event.stopPropagation();
+    });
+});
+</script>
 
 <style>
     /* Basic styles */
@@ -54,7 +374,7 @@
         min-height: 100vh;
     }
 
-    .quiz-container {
+    .container {
         max-width: 800px;
         margin: 0 auto;
         padding: 20px;
@@ -62,7 +382,7 @@
         position: relative;
     }
 
-    .quiz-content {
+    .quiz-question {
         max-width: 800px;
         margin: 0 auto;
         padding: 20px;
@@ -70,12 +390,12 @@
 
     /* שיפורים לתצוגה במובייל */
     @media (max-width: 768px) {
-        .quiz-container {
+        .container {
             padding: 10px;
             padding-top: 80px;
         }
 
-        .quiz-content {
+        .quiz-question {
             padding: 10px;
         }
 
@@ -166,7 +486,7 @@
         }
 
         /* מרווח בתחתית הדף בשביל הכפתורים */
-        .quiz-container {
+        .container {
             padding-bottom: 80px;
         }
     }
@@ -327,345 +647,6 @@
         color: #4CAF50;
     }
 </style>
-
-<script>
-    let currentPage = 0;
-    const questionsPerPage = 6;
-
-    const questions = [
-        { id: 1, text: "אני מנשנש מאוחר בלילה לעיתים תכופות", type: "a" },
-        { id: 2, text: "לעיתים רחוקות אני משאיר משהו בצלחת", type: "b" },
-        { id: 3, text: "אני לא אוהב לסרב למשהו שמישהו מבשל עבורי", type: "c" },
-        { id: 4, text: "אני חושב על אוכל כמעט כל היום", type: "d" },
-        { id: 5, text: "אני אוכל בחוץ יותר מפעם אחת בכל שבוע", type: "e" },
-        { id: 6, text: "אוכל עוזר לי להרגיש בשליטה על עולמי", type: "f" },
-        { id: 7, text: "כאשר אני שרוי במתח, אני אוכל יותר", type: "a" },
-        { id: 8, text: "אני הולך למסעדות בהן אני יודע שאקבל מנה ראויה", type: "b" },
-        { id: 9, text: "כשאני בתוך מערכת יחסים, אני אוכל יותר", type: "c" },
-        { id: 10, text: "אני אוכל כל כך מהר, שאני לא מרגיש את הטעם של האוכל", type: "d" },
-        { id: 11, text: "אני שונא לערוך קניות של אוכל", type: "e" },
-        { id: 12, text: "יש לי שגרה של אוכל שאני מעדיף להיצמד אליו", type: "f" },
-        { id: 13, text: "אני אוכל יותר כאשר אני לבד", type: "a" },
-        { id: 14, text: "לעיתים קרובות אני גומר את הארוחה של אנשים אחרים. 'מנקה' את הצלחת שלהם", type: "b" },
-        { id: 15, text: "בן/בת זוגי אינו מבין מה אני הכי אוהב לאכול", type: "c" },
-        { id: 16, text: "אני מתאווה לממתקים באופן קבוע", type: "d" },
-        { id: 17, text: "אני מתייחס לאוכל כאל דלק לגוף", type: "e" },
-        { id: 18, text: "אני משתמש בדרך שאני אוכל כאמצעי לקבלת תגובה מהסובבים אותי", type: "f" },
-        { id: 19, text: "לעיתים קרובות אני מתחרט על מה שאכלתי, מיד אחרי שאכלתי אותו", type: "a" },
-        { id: 20, text: "אני נהנה לאכול במסעדות מסוג 'אכול כפי יכולתך'", type: "b" },
-        { id: 21, text: "בן / בת זוגי עולה במשקל וכך גם אני", type: "c" },
-        { id: 22, text: "אני לא יודע למה אני לא יורד יותר במשקל", type: "d" },
-        { id: 23, text: "תמיד יש לי מלאי של ארוחות מוכנות בבית", type: "e" },
-        { id: 24, text: "יש לי שגרה של אוכל שאני מעדיף להיצמד אליו", type: "f" },
-        { id: 25, text: "אני אוכל כשאני מרגיש תחת לחץ", type: "a" },
-        { id: 26, text: "אני נהנה להרגיש מפוצץ", type: "b" },
-        { id: 27, text: "אני לא אוהבת שבן/ בת זוגי או חברי אוכלים לבד אז אני מצטרף אליהם", type: "c" },
-        { id: 28, text: "יש מאכלים שאני לא יכול להפסיק לאכול אותם ברגע שאני מתחיל", type: "d" },
-        { id: 29, text: "לעיתים רחוקות אני מבשל משהו שהבישול שלו לוקח יותר מ - 10 דקות", type: "e" },
-        { id: 30, text: "אני נלחץ כאשר אינני יכול להיצמד לשגרת האכילה שלי", type: "f" },
-        { id: 31, text: "אוכל גורם לי עונג", type: "a" },
-        { id: 32, text: "לעיתים רחוקות אני אומר 'לא' כאשר שמים לי אוכל בצלחת", type: "b" },
-        { id: 33, text: "לעיתים קרובות אני אוכל מה שאחרים אוכלים, אפילו שאני עצמי לא רוצה את זה", type: "c" },
-        { id: 34, text: "אני לא יודע למה אני לא יורד יותר במשקל", type: "d" },
-        { id: 35, text: "בדרך כלל אין במקרר לי את האוכל 'שנכון' לי", type: "e" },
-        { id: 36, text: "אני יכול להיות ספגן ביחס לאוכל שאותו אני אוכל", type: "f" }
-    ];
-
-    function showQuestionsPage(pageIndex) {
-        const startIndex = pageIndex * questionsPerPage;
-        const endIndex = startIndex + questionsPerPage;
-        const pageQuestions = questions.slice(startIndex, endIndex);
-        const form = document.querySelector('.questions-page');
-        
-        form.innerHTML = pageQuestions.map((question, index) => `
-            <div class="question-row">
-                <span class="question-number">${startIndex + index + 1}</span>
-                <div class="question">
-                    <h3>${question.text}</h3>
-                    <div class="rating">
-                        ${[1, 2, 3, 4, 5].map(value => `
-                            <label class="rating-option">
-                                <input type="radio" name="q${question.id}" value="${value}" 
-                                       ${question.selectedAnswer === value ? 'checked' : ''}
-                                       onchange="handleAnswerChange(${question.id}, ${value})">
-                                <span class="rating-value">${value}</span>
-                                ${value === 1 ? '<span class="rating-label">מאוד לא מסכימה</span>' : ''}
-                                ${value === 5 ? '<span class="rating-label">מסכימה מאוד</span>' : ''}
-                            </label>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `).join('');
-
-        // עדכון כפתורי ניווט
-        document.getElementById('prevButton').style.display = pageIndex > 0 ? 'block' : 'none';
-        document.getElementById('nextButton').style.display = pageIndex < Math.ceil(questions.length / questionsPerPage) - 1 ? 'block' : 'none';
-        document.getElementById('submitButton').style.display = pageIndex === Math.ceil(questions.length / questionsPerPage) - 1 ? 'block' : 'none';
-
-        // עדכון סרגל התקדמות
-        const progress = ((pageIndex + 1) / Math.ceil(questions.length / questionsPerPage)) * 100;
-        document.getElementById('quizProgress').style.width = `${progress}%`;
-        document.getElementById('progressText').textContent = `דף ${pageIndex + 1} מתוך ${Math.ceil(questions.length / questionsPerPage)}`;
-
-        checkPageCompletion();
-    }
-
-    function handleAnswerChange(questionId, value) {
-        const question = questions.find(q => q.id === questionId);
-        if (question) {
-            question.selectedAnswer = value;
-            saveAnswersToStorage();
-            checkPageCompletion();
-        }
-    }
-
-    function checkPageCompletion() {
-        const startIndex = currentPage * questionsPerPage;
-        const endIndex = startIndex + questionsPerPage;
-        const pageQuestions = questions.slice(startIndex, endIndex);
-        
-        const isPageComplete = pageQuestions.every(question => question.selectedAnswer !== undefined);
-        
-        if (currentPage === Math.ceil(questions.length / questionsPerPage) - 1) {
-            document.getElementById('submitButton').disabled = !isPageComplete;
-        } else {
-            document.getElementById('nextButton').disabled = !isPageComplete;
-        }
-    }
-
-    function saveAnswersToStorage() {
-        const answers = questions.map(q => ({
-            id: q.id,
-            selectedAnswer: q.selectedAnswer
-        }));
-        localStorage.setItem('quizAnswers', JSON.stringify(answers));
-        localStorage.setItem('currentPage', currentPage.toString());
-    }
-
-    function loadAnswersFromStorage() {
-        const savedAnswers = localStorage.getItem('quizAnswers');
-        const savedPage = localStorage.getItem('currentPage');
-        
-        if (savedAnswers) {
-            const answers = JSON.parse(savedAnswers);
-            answers.forEach(answer => {
-                const question = questions.find(q => q.id === answer.id);
-                if (question) {
-                    question.selectedAnswer = answer.selectedAnswer;
-                }
-            });
-        }
-        
-        if (savedPage) {
-            currentPage = parseInt(savedPage);
-        }
-    }
-
-    function clearAnswersFromStorage() {
-        localStorage.removeItem('quizAnswers');
-        localStorage.removeItem('currentPage');
-    }
-
-    function clearAllStorageData() {
-        localStorage.removeItem('quizAnswers');
-        localStorage.removeItem('currentPage');
-        localStorage.removeItem('quizResults');
-    }
-
-    function calculateResults() {
-        const results = {
-            'a': 0, // אכילה רגשית
-            'b': 0, // אכילת יתר
-            'c': 0, // אכילה חברתית
-            'd': 0, // אכילה אובססיבית
-            'e': 0, // אכילה לא מודעת
-            'f': 0  // אכילה נוקשה
-        };
-
-        // חישוב הסכום לכל סוג
-        questions.forEach(question => {
-            if (question.selectedAnswer) {
-                results[question.type] += question.selectedAnswer;
-            }
-        });
-
-        return results;
-    }
-
-    function showResults(results) {
-        console.log('showResults function called with:', results);
-        
-        const modal = document.getElementById('completionModal');
-        const resultsTable = document.getElementById('resultsTable');
-        const primaryStyle = document.getElementById('primaryStyle');
-        const secondaryStyle = document.getElementById('secondaryStyle');
-        
-        if (!modal || !resultsTable || !primaryStyle || !secondaryStyle) {
-            console.error('Required elements not found!');
-            return;
-        }
-
-        // יצירת טבלת תוצאות
-        let tableHTML = `
-            <table>
-                <tr>
-                    <th>סגנון אכילה</th>
-                    <th>ציון</th>
-                </tr>
-        `;
-
-        const styles = {
-            'a': 'אכילה רגשית',
-            'b': 'אכילת יתר',
-            'c': 'אכילה חברתית',
-            'd': 'אכילה אובססיבית',
-            'e': 'אכילה לא מודעת',
-            'f': 'אכילה נוקשה'
-        };
-
-        // מציאת הציון הגבוה ביותר
-        const maxScore = Math.max(...Object.values(results));
-
-        // יצירת שורות הטבלה
-        Object.entries(results).forEach(([type, score]) => {
-            const isHighest = score === maxScore;
-            tableHTML += `
-                <tr class="${isHighest ? 'highest-score' : ''}">
-                    <td>${styles[type]}</td>
-                    <td>${score}</td>
-                </tr>
-            `;
-        });
-        tableHTML += '</table>';
-        
-        resultsTable.innerHTML = tableHTML;
-
-        // מציאת סגנון האכילה העיקרי והמשני
-        const sortedScores = Object.entries(results)
-            .sort((a, b) => b[1] - a[1]);
-
-        primaryStyle.textContent = `סגנון האכילה העיקרי שלך הוא: ${styles[sortedScores[0][0]]}`;
-
-        if (sortedScores[1][1] >= sortedScores[0][1] - 2) {
-            secondaryStyle.textContent = `יש לך גם נטייה משמעותית לסגנון: ${styles[sortedScores[1][0]]}`;
-        } else {
-            secondaryStyle.textContent = '';
-        }
-
-        // מציג את המודל
-        document.body.style.overflow = 'hidden'; // מונע גלילה ברקע
-        modal.classList.add('show');
-    }
-
-    function submitQuiz() {
-        console.log('submitQuiz function called');
-        
-        // בדיקה שכל השאלות נענו
-        const allAnswered = questions.every(q => q.selectedAnswer !== undefined);
-        if (!allAnswered) {
-            alert('אנא ענה על כל השאלות לפני שליחת השאלון');
-            return;
-        }
-
-        const results = calculateResults();
-
-        // שמירת התוצאות ב-localStorage
-        localStorage.setItem('quizResults', JSON.stringify(results));
-        
-        // שליחת התוצאות לשרת ומעבר לדף התוצאות
-        fetch('/submit_quiz', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(results)
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(() => {
-            // מעבר לדף התוצאות
-            window.location.href = '/quiz_results';
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('אירעה שגיאה בשמירת התוצאות. אנא נסי שוב.');
-        });
-    }
-
-    // אתחול השאלון
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('DOM loaded');
-        
-        // איפוס כל הנתונים
-        clearAllStorageData();
-        
-        // טעינת תשובות קודמות
-        loadAnswersFromStorage();
-        
-        // טעינת תוצאות קודמות אם קיימות
-        const savedResults = localStorage.getItem('quizResults');
-        if (savedResults) {
-            console.log('Found saved results');
-            showResults(JSON.parse(savedResults));
-        }
-        
-        showQuestionsPage(currentPage);
-
-        // הוספת מאזינים לכפתורים
-        const submitButton = document.getElementById('submitButton');
-        const nextButton = document.getElementById('nextButton');
-        const prevButton = document.getElementById('prevButton');
-        const modal = document.getElementById('completionModal');
-        const closeBtn = document.querySelector('.close-modal');
-
-        if (!submitButton || !nextButton || !prevButton || !modal || !closeBtn) {
-            console.error('Required elements not found');
-            return;
-        }
-
-        submitButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            submitQuiz();
-        });
-
-        nextButton.addEventListener('click', () => {
-            saveAnswersToStorage();
-            currentPage++;
-            showQuestionsPage(currentPage);
-            window.scrollTo({ top: 0, behavior: 'smooth' }); // גלילה לראש העמוד
-        });
-
-        prevButton.addEventListener('click', () => {
-            saveAnswersToStorage();
-            currentPage--;
-            showQuestionsPage(currentPage);
-        });
-
-        // סגירת המודל
-        const closeModal = () => {
-            modal.classList.remove('show');
-            document.body.style.overflow = '';
-        };
-
-        closeBtn.addEventListener('click', closeModal);
-
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-
-        // מניעת סגירת המודל בלחיצה על תוכן המודל
-        modal.querySelector('.modal-content').addEventListener('click', (event) => {
-            event.stopPropagation();
-        });
-    });
-</script>
 
 {% endblock %}
 

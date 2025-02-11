@@ -83,6 +83,7 @@ class User(UserMixin, db.Model):
     completed_videos = db.Column(db.Text, default='')
     progress = db.Column(db.Integer, default=0)
     is_admin = db.Column(db.Boolean, default=False)
+    quiz_completed = db.Column(db.Boolean, default=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -679,8 +680,10 @@ def contact():
 @login_required
 def reset_progress():
     try:
-        current_user.completed_videos = ''
-        current_user.progress = 0
+        user = User.query.filter_by(email=current_user.email).first()
+        user.completed_videos = []
+        user.quiz_completed = False
+        user.quiz_results = None
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -688,87 +691,111 @@ def reset_progress():
         db.session.rollback()
         return jsonify({'success': False, 'message': 'An error occurred'})
 
-@app.route('/quiz', methods=['GET', 'POST'])
+@app.route('/quiz')
 @login_required
 def quiz():
-    if request.method == 'GET':
-        # בדיקה אם המשתמש כבר ענה על השאלון
-        if current_user.difficulty != 0:
-            return redirect(url_for('quiz_results'))
+    user = User.query.filter_by(email=current_user.email).first()
+    if not user.quiz_completed:
         return render_template('quiz.html')
-    
-    return render_template('quiz.html')
+    return redirect(url_for('quiz_results'))
 
 @app.route('/submit_quiz', methods=['POST'])
 @login_required
 def submit_quiz():
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'User not authenticated'}), 401
+
     try:
         data = request.get_json()
-        if not data or 'answers' not in data:
-            return jsonify({'error': 'לא התקבלו תשובות'}), 400
-
-        answers = data['answers']
+        answers = data.get('answers', {})
         
-        # וולידציה של התשובות
-        required_questions = set(range(1, 11))  # שאלות 1-10
-        received_questions = set(int(q) for q in answers.keys())
+        # חישוב התוצאות
+        eating_types = {
+            'a': {'name': 'אכלנית רגשית', 'score': 0},
+            'b': {'name': 'אכלנית בגדול', 'score': 0},
+            'c': {'name': 'אכלנית המרצה', 'score': 0},
+            'd': {'name': 'אכלנית מכורה', 'score': 0},
+            'e': {'name': 'אכלנית עצלנית', 'score': 0},
+            'f': {'name': 'אכלנית חולת שליטה', 'score': 0}
+        }
         
-        if required_questions != received_questions:
-            missing = required_questions - received_questions
-            return jsonify({'error': f'חסרות תשובות לשאלות: {", ".join(map(str, missing))}'}), 400
-
-        try:
-            # חישוב התוצאה
-            emotional_score = 0
-            compulsive_score = 0
+        for q, a in answers.items():
+            q_num = int(q)
+            answer = int(a)
             
-            for q, a in answers.items():
-                q_num = int(q)
-                answer = int(a)
-                
-                if not (1 <= answer <= 5):
-                    return jsonify({'error': f'תשובה לא חוקית לשאלה {q_num}'}), 400
-                
-                if q_num in [1, 3, 5, 7, 9]:
-                    emotional_score += answer
-                else:
-                    compulsive_score += answer
+            if not (1 <= answer <= 5):
+                return jsonify({'error': f'תשובה לא חוקית לשאלה {q_num}'}), 400
+            
+            if q_num in [1, 3, 5, 7, 9]:
+                eating_types['a']['score'] += answer
+            elif q_num in [2, 4, 6, 8, 10]:
+                eating_types['b']['score'] += answer
+        
+        # קביעת הסוג
+        max_score = max(eating_types.values(), key=lambda x: x['score'])
+        difficulty = list(eating_types.keys()).index(max_score['name']) + 1
 
-            # קביעת הסוג
-            if emotional_score >= 15 and compulsive_score >= 15:
-                difficulty = 3  # כפייתית
-            elif emotional_score >= 15:
-                difficulty = 2  # רגשית
-            else:
-                difficulty = 1  # מאוזנת
+        # שמירת התוצאות
+        user = User.query.filter_by(email=current_user.email).first()
+        user.difficulty = difficulty
+        user.quiz_answers = answers
+        user.quiz_completed = True
+        db.session.commit()
 
-            # שמירת התוצאות
-            current_user.difficulty = difficulty
-            current_user.quiz_answers = answers
-            db.session.commit()
+        return jsonify({
+            'success': True,
+            'difficulty': difficulty,
+            'redirect_url': url_for('quiz_results')
+        })
 
-            return jsonify({
-                'success': True,
-                'difficulty': difficulty,
-                'redirect_url': url_for('quiz_results')
-            })
-
-        except ValueError as e:
-            return jsonify({'error': 'ערך לא חוקי באחת התשובות'}), 400
-
-    except Exception as e:
-        db.session.rollback()
-        app.logger.error(f'שגיאה בשמירת תוצאות השאלון: {str(e)}')
-        return jsonify({'error': 'אירעה שגיאה בשמירת התוצאות'}), 500
+    except ValueError as e:
+        return jsonify({'error': 'ערך לא חוקי באחת התשובות'}), 400
 
 @app.route('/quiz_results')
 @login_required
 def quiz_results():
-    if current_user.difficulty == 0:
+    if not current_user.quiz_completed:
         return redirect(url_for('quiz'))
-        
-    eating_type = current_user.get_eating_type()
-    return render_template('quiz_results.html', eating_type=eating_type)
+    
+    # מקבל את התשובות מהדאטהבייס
+    answers = current_user.quiz_answers
+    
+    # חישוב התוצאות
+    eating_types = {
+        'a': {'name': 'אכלנית רגשית', 'score': 0},
+        'b': {'name': 'אכלנית בגדול', 'score': 0},
+        'c': {'name': 'אכלנית המרצה', 'score': 0},
+        'd': {'name': 'אכלנית מכורה', 'score': 0},
+        'e': {'name': 'אכלנית עצלנית', 'score': 0},
+        'f': {'name': 'אכלנית חולת שליטה', 'score': 0}
+    }
+    
+    # חישוב הציון לכל סוג
+    for q_num, answer in answers.items():
+        q_type = get_question_type(int(q_num))
+        if q_type in eating_types:
+            eating_types[q_type]['score'] += int(answer)
+    
+    # מיון התוצאות לפי ציון
+    sorted_types = sorted(
+        [{'type': k, **v} for k, v in eating_types.items()],
+        key=lambda x: x['score'],
+        reverse=True
+    )
+    
+    return render_template('quiz_results.html', results=sorted_types)
+
+def get_question_type(q_num):
+    """מחזיר את סוג השאלה לפי מספר השאלה"""
+    question_types = {
+        1: 'a', 2: 'b', 3: 'c', 4: 'd', 5: 'e', 6: 'f',
+        7: 'a', 8: 'b', 9: 'c', 10: 'd', 11: 'e', 12: 'f',
+        13: 'a', 14: 'b', 15: 'c', 16: 'd', 17: 'e', 18: 'f',
+        19: 'a', 20: 'b', 21: 'c', 22: 'd', 23: 'e', 24: 'f',
+        25: 'a', 26: 'b', 27: 'c', 28: 'd', 29: 'e', 30: 'f',
+        31: 'a', 32: 'b', 33: 'c', 34: 'd', 35: 'e', 36: 'f'
+    }
+    return question_types.get(q_num)
 
 @app.route('/test-email')
 def test_email():
@@ -1055,6 +1082,20 @@ def initialize_database():
             # הוספת מחיר ברירת מחדל אם לא קיים
             if not Settings.query.filter_by(key='course_price').first():
                 Settings.set_course_price('997')
+            
+            # יצירת משתמש אדמין אם לא קיים
+            admin_user = User.query.filter_by(username='admin').first()
+            if not admin_user:
+                admin_user = User(
+                    username='admin',
+                    email='admin@mindful-weight-loss.com',
+                    is_admin=True,
+                    registration_date=datetime.now(timezone.utc)
+                )
+                admin_user.set_password('Aa123456!')
+                db.session.add(admin_user)
+                db.session.commit()
+                app.logger.info('Admin user created successfully')
             
             _is_db_initialized = True
 
