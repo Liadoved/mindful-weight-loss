@@ -598,7 +598,7 @@ def course():
     # בדיקה אם המשתמש השלים את כל הפרקים
     total_videos = len(VIDEOS)
     completed_count = current_user.get_completed_videos_count()
-    current_user.progress = int((completed_count / total_videos) * 100)
+    current_user.progress = calculate_progress(current_user.completed_videos)
     
     # אם המשתמש סיים את כל הפרקים, נסמן זאת
     if current_user.progress == 100:
@@ -608,6 +608,29 @@ def course():
                          videos=VIDEOS,
                          completed_videos=current_user.completed_videos.split(',') if current_user.completed_videos else [],
                          progress=current_user.progress)
+
+def calculate_progress(completed_videos):
+    if not completed_videos:
+        return 0
+        
+    # מספר הסרטונים בכל פרק
+    videos_per_chapter = {
+        1: 4,  # פרק 1 - 4 סרטונים
+        2: 4,  # פרק 2 - 4 סרטונים
+        3: 4,  # פרק 3 - 4 סרטונים
+        4: 4,  # פרק 4 - 4 סרטונים
+        5: 4,  # פרק 5 - 4 סרטונים
+        6: 4,  # פרק 6 - 4 סרטונים
+        7: 4,  # פרק 7 - 4 סרטונים
+        8: 4   # פרק 8 - 4 סרטונים
+    }
+    
+    total_videos = sum(videos_per_chapter.values())  # סך כל הסרטונים
+    completed = len(completed_videos.split(',')) if completed_videos else 0
+    
+    # חישוב האחוז
+    progress = (completed / total_videos) * 100
+    return min(round(progress), 100)  # מעגל כלפי מטה ומגביל ל-100%
 
 @app.route('/mark_complete/<video_id>', methods=['POST'])
 @login_required
@@ -640,17 +663,16 @@ def mark_complete(video_id):
             current_user.completed_videos = ','.join(completed_videos)
             
             # Calculate progress
-            progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
-            current_user.progress = progress
+            current_user.progress = calculate_progress(current_user.completed_videos)
             
-            app.logger.info(f"Chapter {video_id} marked as complete. New progress: {progress}%")
+            app.logger.info(f"Chapter {video_id} marked as complete. New progress: {current_user.progress}%")
             app.logger.info(f"New completed videos: {completed_videos}")
             
             db.session.commit()
             
             return jsonify({
                 'success': True,
-                'progress': progress
+                'progress': current_user.progress
             })
         
         return jsonify({'success': False, 'message': 'לא ניתן לסמן כהושלם'})
@@ -664,7 +686,7 @@ def mark_complete(video_id):
 def update_progress():
     data = request.get_json()
     current_user.completed_videos = ','.join(map(str, data['completed_videos']))
-    current_user.progress = len(data['completed_videos']) / TOTAL_ITEMS * 100
+    current_user.progress = calculate_progress(current_user.completed_videos)
     db.session.commit()
     return jsonify({'status': 'success'})
 
@@ -676,7 +698,7 @@ def get_progress():
         if current_user.completed_videos and current_user.completed_videos.strip():
             completed_videos = current_user.completed_videos.split(',')
             
-        progress = int((len(completed_videos) / TOTAL_ITEMS) * 100)
+        progress = calculate_progress(current_user.completed_videos)
         
         return jsonify({
             'completed_videos': completed_videos,
