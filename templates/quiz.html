@@ -3,18 +3,18 @@
 {% block content %}
 <div class="quiz-container">
     <div class="quiz-content">
-        <h1>שאלון אבחון סוג האכלנית שבך</h1>
+        <h1>שאלון אבחון סוג האכלנית שאת</h1>
         <div class="quiz-description">
             <p>* השאלון כתוב בלשון נקבה אך מיועד לשני המינים</p>
             <p>דרגי כל היגד מ-1 עד 5, כאשר:</p>
             <div class="rating-legend">
                 <div class="legend-item">
                     <span class="rating-number">1</span>
-                    <span class="rating-text">אף פעם</span>
+                    <span class="rating-text">לא מסכימה בכלל</span>
                 </div>
                 <div class="legend-item">
                     <span class="rating-number">5</span>
-                    <span class="rating-text">תמיד</span>
+                    <span class="rating-text">מסכימה מאוד</span>
                 </div>
             </div>
         </div>
@@ -69,11 +69,12 @@
         }
 
         .question-row {
-            margin-bottom: 20px;
+            margin-bottom: 30px; /* מרווח גדול יותר בין השאלות */
             padding: 15px;
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative; /* לצורך מיקום הדירוג */
         }
 
         .rating {
@@ -81,9 +82,9 @@
             flex-direction: row;
             justify-content: space-between;
             gap: 5px;
-            margin-top: 10px;
-            overflow-x: auto;
-            padding: 10px 0;
+            margin-top: 20px; /* מרווח גדול יותר מהשאלה */
+            overflow-x: visible; /* מאפשר לספרות להיות מוצגות במלואן */
+            padding: 10px 5px; /* מרווח בצדדים */
             -webkit-overflow-scrolling: touch;
         }
 
@@ -98,42 +99,23 @@
             min-width: 60px;
             text-align: center;
             flex-shrink: 0;
+            margin: 0 2px; /* מרווח קטן בין האפשרויות */
         }
 
-        .rating-option:hover {
-            background: #e0e0e0;
-        }
-
-        .rating-value {
-            font-size: 1.2em;
+        .rating-number {
+            font-size: 18px;
             font-weight: bold;
+            display: block;
             margin-bottom: 5px;
-        }
-
-        .rating-label {
-            font-size: 0.8em;
-            color: #666;
             text-align: center;
+            width: 100%;
+        }
+
+        .rating-text {
+            font-size: 14px;
+            text-align: center;
+            width: 100%;
             white-space: nowrap;
-        }
-
-        .rating-option input[type="radio"] {
-            margin: 5px 0;
-        }
-
-        /* Hide scrollbar but keep functionality */
-        .rating::-webkit-scrollbar {
-            display: none;
-        }
-        .rating {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        h3 {
-            font-size: 1em;
-            margin-bottom: 10px;
-            line-height: 1.4;
         }
 
         .navigation-buttons {
@@ -294,8 +276,8 @@
                                        ${question.selectedAnswer === value ? 'checked' : ''}
                                        onchange="handleAnswerChange(${question.id}, ${value})">
                                 <span class="rating-value">${value}</span>
-                                ${value === 1 ? '<span class="rating-label">אף פעם</span>' : ''}
-                                ${value === 5 ? '<span class="rating-label">תמיד</span>' : ''}
+                                ${value === 1 ? '<span class="rating-label">לא מסכימה בכלל</span>' : ''}
+                                ${value === 5 ? '<span class="rating-label">מסכימה מאוד</span>' : ''}
                             </label>
                         `).join('')}
                     </div>
