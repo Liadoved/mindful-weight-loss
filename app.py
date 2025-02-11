@@ -92,11 +92,16 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password):
         if not self.password_hash:
-            app.logger.warning(f'אין סיסמה מוגדרת למשתמש: {self.username}')
+            app.logger.error(f'אין סיסמה מוגדרת למשתמש {self.username}')
             return False
-        result = check_password_hash(self.password_hash, password)
-        app.logger.info(f'בדיקת סיסמה למשתמש {self.username}: {"תקין" if result else "שגוי"}')
-        return result
+        try:
+            app.logger.info(f'בדיקת סיסמה למשתמש {self.username}')
+            result = check_password_hash(self.password_hash, password)
+            app.logger.info(f'בדיקת סיסמה למשתמש {self.username}: {"תקין" if result else "שגוי"}')
+            return result
+        except Exception as e:
+            app.logger.error(f'שגיאה בבדיקת סיסמה למשתמש {self.username}: {str(e)}')
+            return False
 
     def get_eating_type(self):
         types = {
@@ -535,45 +540,30 @@ def login():
             remember = request.form.get('remember', False)
 
             app.logger.info(f'ניסיון התחברות עם: {username_or_email}')
-
-            if not username_or_email or not password:
-                flash('נא למלא את כל השדות', 'error')
-                return redirect(url_for('login'))
-
+            
             # חיפוש משתמש לפי אימייל או שם משתמש
             user = User.query.filter(
                 (User.email == username_or_email) | 
                 (User.username == username_or_email)
             ).first()
             
-            if not user:
-                app.logger.warning(f'משתמש לא נמצא: {username_or_email}')
+            if user:
+                app.logger.info(f'נמצא משתמש: {user.username}, אדמין: {user.is_admin}, יש סיסמה: {bool(user.password_hash)}')
+                if user.check_password(password):
+                    app.logger.info('סיסמה נכונה, מתחבר...')
+                    login_user(user)
+                    user.last_login = datetime.utcnow()
+                    db.session.commit()
+                    return redirect(url_for('index'))
+                else:
+                    app.logger.warning('סיסמה שגויה')
+                    flash('שם משתמש או סיסמה שגויים', 'error')
+            else:
+                app.logger.warning('משתמש לא נמצא')
                 flash('שם משתמש או סיסמה שגויים', 'error')
-                return redirect(url_for('login'))
-
-            app.logger.info(f'משתמש נמצא: {user.username}, בדיקת סיסמה...')
-            if not user.check_password(password):
-                app.logger.warning(f'סיסמה שגויה למשתמש: {user.username}')
-                flash('שם משתמש או סיסמה שגויים', 'error')
-                return redirect(url_for('login'))
-
-            # עדכון זמן התחברות אחרון
-            user.last_login = datetime.now(timezone.utc)
-            try:
-                db.session.commit()
-            except Exception as e:
-                app.logger.error(f'שגיאה בעדכון זמן התחברות אחרון: {str(e)}')
-
-            login_user(user, remember=remember)
-            app.logger.info(f'התחברות מוצלחת: {user.username} (אדמין: {user.is_admin})')
-
-            # הפניה לדף המבוקש או לדף הבית
-            next_page = request.args.get('next')
-            if not next_page or urlparse(next_page).netloc != '':
-                next_page = url_for('admin') if user.is_admin else url_for('index')
             
-            return redirect(next_page)
-
+            return redirect(url_for('login'))
+        
         except Exception as e:
             app.logger.error(f'שגיאה בתהליך ההתחברות: {str(e)}')
             flash('אירעה שגיאה. נא לנסות שוב מאוחר יותר.', 'error')
@@ -613,23 +603,19 @@ def calculate_progress(completed_videos):
     if not completed_videos:
         return 0
         
-    # מספר הסרטונים בכל פרק
-    videos_per_chapter = {
-        1: 4,  # פרק 1 - 4 סרטונים
-        2: 4,  # פרק 2 - 4 סרטונים
-        3: 4,  # פרק 3 - 4 סרטונים
-        4: 4,  # פרק 4 - 4 סרטונים
-        5: 4,  # פרק 5 - 4 סרטונים
-        6: 4,  # פרק 6 - 4 סרטונים
-        7: 4,  # פרק 7 - 4 סרטונים
-        8: 4   # פרק 8 - 4 סרטונים
-    }
+    # סך הכל 8 פרקים (7 פרקים + פרק ביניים)
+    TOTAL_CHAPTERS = 8
     
-    total_videos = sum(videos_per_chapter.values())  # סך כל הסרטונים
-    completed = len(completed_videos.split(',')) if completed_videos else 0
+    # המרת רשימת הסרטונים שהושלמו לפרקים ייחודיים
+    completed_chapters = set()
+    for video in completed_videos.split(','):
+        if video:  # בדיקה שהמחרוזת לא ריקה
+            # מחלצים את מספר הפרק מתוך מזהה הסרטון
+            chapter = int(video.split('_')[0])
+            completed_chapters.add(chapter)
     
-    # חישוב האחוז
-    progress = (completed / total_videos) * 100
+    # חישוב האחוז לפי מספר הפרקים שהושלמו
+    progress = (len(completed_chapters) / TOTAL_CHAPTERS) * 100
     return min(round(progress), 100)  # מעגל כלפי מטה ומגביל ל-100%
 
 @app.route('/mark_complete/<video_id>', methods=['POST'])
